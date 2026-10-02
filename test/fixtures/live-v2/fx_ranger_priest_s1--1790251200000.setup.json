@@ -1,0 +1,351 @@
+{
+ "format": "chronal-setup/1",
+ "resolved": {
+  "at": "2026-09-24T12:00:00.000Z",
+  "by": "chronal run",
+  "from": "/opt/anycode/setup.json"
+ },
+ "name": "fx ranger+priest",
+ "strategy": null,
+ "run": {
+  "duration": "180m",
+  "warmup": "1m",
+  "seed": 1,
+  "until": null,
+  "check": "1s",
+  "grid_ms": 30000
+ },
+ "world": {
+  "roi": null,
+  "threads": true,
+  "age": "0m",
+  "ping": 18
+ },
+ "party": {
+  "members": [
+   "Ran1",
+   "Pri1"
+  ],
+  "leader": "Ran1",
+  "form": "harness"
+ },
+ "accounts": {
+  "main": {
+   "age_days": 0,
+   "bank": {
+    "gold": 2500000,
+    "items0": [
+     {
+      "name": "seashell",
+      "q": 40
+     },
+     {
+      "name": "ringsj",
+      "level": 1
+     },
+     null
+    ],
+    "items1": []
+   }
+  }
+ },
+ "characters": [
+  {
+   "name": "Ran1",
+   "class": "ranger",
+   "account": "main",
+   "role": null,
+   "fps": 10,
+   "at": {
+    "map": "winterland",
+    "x": 1082,
+    "y": -873
+   },
+   "params": {
+    "farm": {
+     "map": "winterland",
+     "x": 1082,
+     "y": -873,
+     "monsters": [
+      "arcticbee"
+     ]
+    }
+   },
+   "state": {
+    "level": 64,
+    "xp": 20000000,
+    "gold": 250000,
+    "items": [
+     {
+      "name": "hpot1",
+      "q": 200
+     },
+     {
+      "name": "mpot1",
+      "q": 200
+     },
+     null,
+     {
+      "name": "seashell",
+      "q": 3
+     }
+    ],
+    "slots": {
+     "mainhand": {
+      "name": "firebow",
+      "level": 7
+     },
+     "helmet": {
+      "name": "helmet",
+      "level": 8
+     },
+     "chest": {
+      "name": "coat",
+      "level": 8
+     },
+     "pants": {
+      "name": "pants",
+      "level": 8
+     },
+     "shoes": {
+      "name": "shoes",
+      "level": 8
+     },
+     "gloves": {
+      "name": "gloves",
+      "level": 8
+     },
+     "ring1": {
+      "name": "ringsj",
+      "level": 2
+     },
+     "ring2": {
+      "name": "ringsj",
+      "level": 2
+     },
+     "amulet": {
+      "name": "hpamulet",
+      "level": 2
+     },
+     "belt": {
+      "name": "hpbelt",
+      "level": 2
+     },
+     "orb": {
+      "name": "ftrinket",
+      "level": 0
+     }
+    }
+   },
+   "code": {
+    "entry": "farm.js",
+    "slots": "771df227027fa7f0",
+    "text": "822c60fff5bcd230",
+    "hash": "83ec8e5b"
+   }
+  },
+  {
+   "name": "Pri1",
+   "class": "priest",
+   "account": "main",
+   "role": null,
+   "fps": 10,
+   "at": {
+    "map": "winterland",
+    "x": 1112,
+    "y": -863
+   },
+   "params": {
+    "farm": {
+     "map": "winterland",
+     "x": 1082,
+     "y": -873,
+     "monsters": [
+      "arcticbee"
+     ]
+    }
+   },
+   "state": {
+    "level": 61,
+    "xp": 11400000,
+    "gold": 250000,
+    "items": [
+     {
+      "name": "hpot1",
+      "q": 200
+     },
+     {
+      "name": "mpot1",
+      "q": 200
+     },
+     null,
+     {
+      "name": "seashell",
+      "q": 3
+     }
+    ],
+    "slots": {
+     "mainhand": {
+      "name": "wand",
+      "level": 7
+     },
+     "helmet": {
+      "name": "helmet",
+      "level": 8
+     },
+     "chest": {
+      "name": "coat",
+      "level": 8
+     },
+     "pants": {
+      "name": "pants",
+      "level": 8
+     },
+     "shoes": {
+      "name": "shoes",
+      "level": 8
+     },
+     "gloves": {
+      "name": "gloves",
+      "level": 8
+     },
+     "ring1": {
+      "name": "ringsj",
+      "level": 2
+     },
+     "ring2": {
+      "name": "ringsj",
+      "level": 2
+     },
+     "amulet": {
+      "name": "hpamulet",
+      "level": 2
+     },
+     "belt": {
+      "name": "hpbelt",
+      "level": 2
+     },
+     "orb": {
+      "name": "ftrinket",
+      "level": 0
+     }
+    }
+   },
+   "code": {
+    "entry": "farm.js",
+    "slots": "771df227027fa7f0",
+    "text": "822c60fff5bcd230",
+    "hash": "83ec8e5b"
+   }
+  },
+  {
+   "name": "Mer1",
+   "class": "merchant",
+   "account": "main",
+   "role": null,
+   "fps": 2,
+   "at": {
+    "map": "winterland",
+    "x": 1142,
+    "y": -853
+   },
+   "params": null,
+   "state": {
+    "level": 40,
+    "xp": 144000,
+    "gold": 12000000,
+    "items": [
+     {
+      "name": "hpot1",
+      "q": 200
+     },
+     {
+      "name": "mpot1",
+      "q": 200
+     },
+     null,
+     {
+      "name": "seashell",
+      "q": 3
+     }
+    ],
+    "slots": {
+     "mainhand": {
+      "name": "staff",
+      "level": 0
+     },
+     "helmet": {
+      "name": "helmet",
+      "level": 0
+     },
+     "shoes": {
+      "name": "shoes",
+      "level": 0
+     }
+    }
+   },
+   "code": {
+    "entry": "stand.js",
+    "slots": "bf21a9e8fbc5a384",
+    "text": "ddbcc40f31cf6e00",
+    "hash": "94c7ca25"
+   }
+  }
+ ],
+ "source": {
+  "characters": {
+   "Ran1": {
+    "code_dir": "/opt/anycode/lib",
+    "recursive": false,
+    "code_git": "?",
+    "entry": null,
+    "file": "/opt/anycode/farm.js",
+    "append": [
+     "/opt/anycode/report.js"
+    ],
+    "extra": [],
+    "prelude": null,
+    "build": null,
+    "state_from": null,
+    "exported_at": null
+   },
+   "Pri1": {
+    "code_dir": "/opt/anycode/lib",
+    "recursive": false,
+    "code_git": "?",
+    "entry": null,
+    "file": "/opt/anycode/farm.js",
+    "append": [
+     "/opt/anycode/report.js"
+    ],
+    "extra": [],
+    "prelude": null,
+    "build": null,
+    "state_from": null,
+    "exported_at": null
+   },
+   "Mer1": {
+    "code_dir": null,
+    "recursive": false,
+    "code_git": "?",
+    "entry": null,
+    "file": "/opt/anycode/stand.js",
+    "append": [
+     "/opt/anycode/report.js"
+    ],
+    "extra": [
+     "chronal.role = \"merchant\";"
+    ],
+    "prelude": null,
+    "build": null,
+    "state_from": "/opt/exports/Mer1.json",
+    "exported_at": "2026-09-24T12:00:00.000Z"
+   }
+  },
+  "accounts": {
+   "main": {
+    "bank_from": "/opt/exports/Mer1.json"
+   }
+  }
+ }
+}

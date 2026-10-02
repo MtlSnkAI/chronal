@@ -1,0 +1,1 @@
+{"helper":"function pick_target(types) {\n\treturn get_nearest_monster({ type: types[0] });\n}\n//# sourceURL=code/helper.js\n"}

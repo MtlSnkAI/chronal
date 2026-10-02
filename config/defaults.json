@@ -1,0 +1,15 @@
+{
+  "al_root": "runtime/app",
+  "upstream": "upstream",
+  "live_dir": "live",
+  "g_data": null,
+  "al_token_file": "config/al_token",
+  "pulls_dir": "pulls",
+  "players_dir": "players",
+  "code_sets": null,
+  "library_dir": "library",
+  "setups_dir": "setups",
+  "accounts_dir": "accounts",
+  "gear_sets_dir": "gearsets",
+  "port": 8089
+}
