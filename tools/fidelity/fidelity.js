@@ -49,6 +49,9 @@ var VERSION = "fidelity/1";
 
 (function () {
 	var IN_SIM = typeof chronal !== "undefined" && !!chronal.params;
+	// (the sim only: a merchant of the account whose mluck the fighter had on live gives it here too; sim.js passes it
+	// params.fidelity_mluck)
+	if (IN_SIM && chronal.params.fidelity_mluck) return mluckFor(chronal.params.fidelity_mluck.target);
 	if (IN_SIM && chronal.params.fidelity) for (var k in chronal.params.fidelity) CFG[k] = chronal.params.fidelity[k];
 	var SPOT = PRESETS[CFG.preset];
 	if (!SPOT) return set_message("fidelity: no preset " + CFG.preset);
@@ -396,5 +399,19 @@ var VERSION = "fidelity/1";
 	setInterval(function () {
 		try { account(); phases(); act(); } catch (e) { game_log("fidelity: " + e); }
 	}, CFG.period_ms);
+
+	// the merchant's part: Merchant's Luck on the fighter it starts beside (an hour: longer than a run), then to its map's
+	// spawn, out of the way
+	function mluckFor(name) {
+		var done = false;
+		setInterval(function () {
+			var f = get_player(name);
+			if (done || !f || is_on_cooldown("mluck")) return;
+			if (f.s && f.s.mluck && f.s.mluck.f === character.name) return void ((done = true), use_skill("use_town"));
+			if (Math.hypot(f.x - character.x, f.y - character.y) <= G.skills.mluck.range) use_skill("mluck", f);
+			else move(f.x, f.y);
+		}, 250);
+		set_message("fidelity: mluck for " + name);
+	}
 	set_message("fidelity: " + CFG.preset + ", run 1/" + CFG.runs);
 })();

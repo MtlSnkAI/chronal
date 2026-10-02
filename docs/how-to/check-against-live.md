@@ -43,9 +43,14 @@ node tools/fidelity/sim.js --live fidelity-<name>-<start>.json --seeds 1-6
 
 From the record: the spot, warm-up and window, the world's clock at the same server hour (night, the server's hours
 0-5, slows monsters), the live ping, the seasons the live server had on, the account's age then (the New Player
-bonus follows it). The character comes from the newest pull holding it (`--pull ACCOUNT/TIME` to choose). The runs go
-to `<live_dir>/fidelity`, apart from the dashboard's runs. Monsters grow while they live: at a spot nobody farmed
-before the live run, add `--world-age 1h`.
+bonus follows it), the character's level (a pull a level behind: the rest as pulled). Merchant's Luck from a merchant
+of the account: that merchant joins the sim run beside the fighter and casts it (buffs from other players can't be
+had). The character comes from the newest pull holding it (`--pull ACCOUNT/TIME` to choose). The runs go to
+`<live_dir>/fidelity`, apart from the dashboard's runs; running a name again replaces its runs.
+
+Monsters grow while they live: at a spot nobody farmed before the live run (the record's monster levels at the
+window's start say so), give the sim's world time first, `--world-age 30m` or `1h`, until `compare.js`'s monster
+level matches.
 
 ## 4. Compare
 

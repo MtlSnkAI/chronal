@@ -54,13 +54,15 @@ const M = [
 	["at the seller: sell, buy, heal (s)", (R) => R.stock_ms / 1000],
 	["trip to the spot (s)", (R) => R.travel_ms / 1000],
 ];
-// what makes a live run unlike the sim's world (none of it is in the sim)
+// what makes a live run unlike the sim's world (none of it is in the sim; a condition the sim runs had too, such as
+// mluck from a merchant of the account, isn't)
+const simConds = new Set(sims.flatMap((s) => Object.keys(s.R.cond_ms || {})));
 const flags = (R) => {
 	const out = [], t = T(R);
 	if (R.phase !== "done") out.push(`phase ${R.phase}: the window didn't end`);
 	if (t.samples && t.others_near / t.samples > 0.05) out.push(`other players near ${((100 * t.others_near) / t.samples).toFixed(0)}% of the samples`);
 	if (t.spot_deaths > t.kills) out.push(`${t.spot_deaths - t.kills} of the spot's monsters died to others`);
-	for (const k of Object.keys(R.cond_ms || {})) if (!/^encouragement_/.test(k)) out.push(`${k} on ${((100 * R.cond_ms[k]) / (R.cfg.minutes * 60000)).toFixed(0)}% of the window`);
+	for (const k of Object.keys(R.cond_ms || {})) if (!/^encouragement_/.test(k) && !simConds.has(k)) out.push(`${k} on ${((100 * R.cond_ms[k]) / (R.cfg.minutes * 60000)).toFixed(0)}% of the window`);
 	// a hidden game tab: the browser runs its timers about once a second, so each throttled second lacks most of its ticks
 	const thr = throttled(R);
 	if (thr > 0.02 * R.cfg.minutes * 60) out.push(`the CODE loop throttled about ${Math.round(thr)} s (${((100 * thr) / (R.cfg.minutes * 60)).toFixed(0)}% of the window; longest gap ${(R.loop.max / 1000).toFixed(1)} s): the game window was hidden`);
