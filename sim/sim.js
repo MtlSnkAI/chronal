@@ -45,6 +45,7 @@ function haltOnSignals(sim, on) {
  * @param {number} [o.seed]            same seed + same CODE => same run
  * @param {number} [o.start]           epoch ms the world's clock starts at (default 2026-01-01T00:00Z: vclock.js)
  * @param {string[]} [o.seasons]       the server's season switches on (server_host.js startServer)
+ * @param {boolean} [o.anniversary]    the anniversary event (default on, as the game server ships)
  * @param {boolean} [o.threads]        one thread per character, stepped in lockstep with the server (docs/explanation/sim.md)
  * @param {number} [o.ping]           round trip client<->server ms, as the game's character.ping (default 18): each way
  *                                     takes 0.4-0.6x it, uniform. In threads mode the minimum is also the lockstep window.
@@ -76,7 +77,7 @@ async function createSim(o) {
 	if (o.quiet !== false) console.log = () => {};
 	let server;
 	try {
-		server = await startServer(env, { seasons: o.seasons || [] });
+		server = await startServer(env, { seasons: o.seasons || [], anniversary: o.anniversary !== false });
 		server.__root = env.root; // clientInfo() reads the design files from here (what /data.js serves)
 	} finally {
 		console.log = log;

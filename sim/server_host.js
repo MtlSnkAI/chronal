@@ -221,7 +221,7 @@ function insertAfter(source, fnName, anchor, line) {
 // seasons: the server's season switches on (a setup's world.seasons), set once its script ran, before it boots (it reads
 // them building its drops and monsters, as its own var events would have them); valentines' goo and holidayseason's
 // snowman every 60 minutes, as server.js sets them for those seasons
-async function startServer(env, { serverKey = "local", timeoutMs = 60000, seasons = [] } = {}) {
+async function startServer(env, { serverKey = "local", timeoutMs = 60000, seasons = [], anniversary = true } = {}) {
 	const prev = env.patch;
 	env.patch = (file, exports) => {
 		if (file.endsWith(`${path.sep}options.js`) && exports.servers && exports.servers[serverKey]) {
@@ -250,6 +250,9 @@ async function startServer(env, { serverKey = "local", timeoutMs = 60000, season
 		return { ok: true, status: 200, text: async () => text, json: async () => JSON.parse(text) };
 	};
 	for (const s of seasons) ctx.events[s] = true;
+	// the anniversary event: on in the server's own events ("remains on until manually disabled"); off: its baker, gift
+	// and slice drops never come (the server checks it as it runs: anniversary_is_active)
+	ctx.events.anniversary = !!anniversary;
 	if (seasons.includes("valentines")) ctx.events.pinkgoo = 60;
 	if (seasons.includes("holidayseason")) ctx.events.snowman = 60;
 	const t0 = env.clock.now;

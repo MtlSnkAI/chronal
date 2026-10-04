@@ -54,6 +54,7 @@ CODE), the party, the accounts (bank, age, browser storage), the world, the run'
 | `ping` | `18` | the round trip to the server in ms, as the game's `character.ping` |
 | `start` | `"2026-01-01T00:00:00Z"` | the world's clock as it boots, a time with its zone (UTC: `Z`) |
 | `seasons` | `[]` | the server's season switches on: `holidayseason`, `lunarnewyear`, `valentines`, `halloween`, `egghunt` |
+| `anniversary` | `true` | the anniversary event (the game server ships it on, "until manually disabled"): its baker on main, the anniversarygift and slice drops; `false`: none |
 | `events` | `[]` | dailies or nightlies forced: `[{ "event": "goobrawl", "at": "20m" }]` (`crabxx`, `goobrawl`, `abtesting`, `icegolem`, `franky`), at game time after the warm-up |
 | `spawns` | `[]` | a custom world: monsters put in it, `[{ "monster", "at": "map:x:y", "count", "radius", "level", "stats": { "hp", "attack", "armor", "resistance", ... }, "hp": "endless", "respawn": "5s" \| "no", "clear": 250 }]` |
 
