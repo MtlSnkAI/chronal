@@ -31,6 +31,14 @@ async function startSetup(resolved, bundles, { live, record, quiet, root } = {})
 	}
 	const seen = new Set(),
 		logins = [];
+	// each account's IP: "local" (the default) the run's own, 127.0.0.1; every other label its own 10.1.0.<n>, in the order
+	// they first come (the server's per-IP limits and its is_same(): trade xp, the send-gold fee, aggro, pvp)
+	const ips = new Map([["local", "127.0.0.1"]]),
+		ipOf = (acc) => {
+			const l = (resolved.accounts[acc] && resolved.accounts[acc].ip) || "local";
+			if (!ips.has(l)) ips.set(l, "10.1.0." + ips.size);
+			return ips.get(l);
+		};
 	// the account's characters as a page loads them (what start_character may start)
 	const owned = (acc) => resolved.characters.filter((x) => x.account === acc).map((x) => ({ name: x.name, type: x.class, level: x.state ? x.state.level : 1, online: x.online !== false }));
 	for (const c of resolved.characters) {
@@ -38,14 +46,14 @@ async function startSetup(resolved, bundles, { live, record, quiet, root } = {})
 			first = !seen.has(c.account);
 		seen.add(c.account);
 		if (first) sim.writeStorage(c.account, storageEntries(resolved.accounts[c.account]));
-		const o = { name: c.name, type: c.class, account: c.account, fps: c.fps, over: characterOver(c), owned: owned(c.account), ...(first ? { user: accountUser(resolved.accounts[c.account]) } : {}) };
+		const o = { name: c.name, type: c.class, account: c.account, fps: c.fps, over: characterOver(c), owned: owned(c.account), ip: ipOf(c.account), ...(first ? { user: accountUser(resolved.accounts[c.account]) } : {}) };
 		// online: false: created on its account, in game once a page of the account starts it (start_character)
 		if (c.online === false) {
 			if (!sim.declare) throw new Error(`${c.name}: online: false needs threads mode (world.threads)`);
 			sim.declare({ ...o, codeOf: slotOf(b) });
 			continue;
 		}
-		const { over, user, ...rest } = o;
+		const { over, user, ...rest } = o; // (rest: the login's, ip in)
 		logins.push({ ...rest, fx: sim.createCharacter({ name: c.name, type: c.class, over, account: c.account, user }), code: b.text, files: b.files, codeOf: slotOf(b) });
 	}
 	// before any character logs in: a linked account (Steam, MAS) has its pid on the user and its characters as the

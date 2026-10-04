@@ -188,7 +188,7 @@ test("at most 3 besides merchants in game from one IP, whatever their accounts",
 			}
 		};
 	assert.deepEqual(problems([...chars(3), { name: "M1", class: "merchant", account: "a" }, { name: "M2", class: "merchant", account: "b" }]), []);
-	assert.deepEqual(problems(chars(4)), ["4 characters besides merchants in game at the start (C0, C1, C2, C3): the game lets 3 play from one IP (a Steam- or MAS-linked account's: 36, 3 per link), whatever their accounts, and a run's characters all play from one: C3 would be refused (put them online: false)"]);
+	assert.deepEqual(problems(chars(4)), ["4 characters besides merchants in game at the start (C0, C1, C2, C3): the game lets 3 play from one IP (a Steam- or MAS-linked account's: 36, 3 per link), whatever their accounts: C3 would be refused (put them online: false, or on another account's ip)"]);
 	assert.deepEqual(problems([...chars(3), { name: "C3", class: "ranger", account: "b", online: false }]), []);
 });
 

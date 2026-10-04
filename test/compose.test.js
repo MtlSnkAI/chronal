@@ -148,7 +148,7 @@ test("another player's characters (a page taken, --player): on their account (no
 	const e = { ...env(p), playersDir: players };
 	const { variants, info } = K.compose({ chars: "Mer,Ran,Zed,Mage9", players: ["Kestrel"] }, e),
 		s = variants[0].setup;
-	assert.deepEqual(s.accounts, { acc: { bank: { from: path.join(p.dir, "Mer.json") }, age_days: 6.5 }, Kestrel: { age_days: 40 } });
+	assert.deepEqual(s.accounts, { acc: { bank: { from: path.join(p.dir, "Mer.json") }, age_days: 6.5 }, Kestrel: { ip: "Kestrel", age_days: 40 } }); // (another player: its own IP)
 	assert.deepEqual(s.characters.slice(2), [
 		{ name: "Zed", class: "ranger", account: "Kestrel", state: { from: path.join(d, "Zed.json"), items: [{ name: "hpot0", q: 9 }], gold: 100 } },
 		{ name: "Mage9", class: "mage", account: "Kestrel", state: { from: path.join(d, "Mage9.json"), items: S.startState(G, "mage", {}, null).items } },
@@ -164,7 +164,7 @@ test("another player's characters (a page taken, --player): on their account (no
 	const z = S.resolveSetup(S.loadSetup(s, { G }), { build: false, G }).resolved.characters.find((c) => c.name === "Zed");
 	assert.deepEqual([z.account, z.state.level, z.state.slots.mainhand, z.state.items, z.state.gold], ["Kestrel", 90, { name: "firebow", level: 7 }, [{ name: "hpot0", q: 9 }], 100]);
 	// accounts: a character moved to another, an account's age and bank (a pull's, or none)
-	assert.deepEqual(K.compose({ chars: "Ran,Zed", players: [d], account_of: { Ran: "Kestrel" }, account_age: { Kestrel: 3 }, account_bank: { Kestrel: "acc" } }, e).variants[0].setup.accounts, { Kestrel: { bank: { from: path.join(p.dir, "Ran.json") }, age_days: 3 } });
+	assert.deepEqual(K.compose({ chars: "Ran,Zed", players: [d], account_of: { Ran: "Kestrel" }, account_age: { Kestrel: 3 }, account_bank: { Kestrel: "acc" } }, e).variants[0].setup.accounts, { Kestrel: { bank: { from: path.join(p.dir, "Ran.json") }, age_days: 3, ip: "Kestrel" } });
 	assert.deepEqual(K.compose({ chars: "Ran", account_bank: { acc: "none" } }, e).variants[0].setup.accounts, { acc: { age_days: 6.5 } });
 	assert.throws(() => K.compose({ chars: "Zed", players: ["Kestrel"], account_bank: { Kestrel: "Kestrel" } }, e), /--account-bank Kestrel=Kestrel: none, or the account of a pull with a bank \(acc\)/);
 	assert.throws(() => K.compose({ chars: "Zed", players: ["Kestrel"], account_age: { Nope: 1 } }, e), /--account-age Nope: no character of the run is on it \(Kestrel\)/);
