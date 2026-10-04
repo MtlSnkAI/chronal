@@ -99,3 +99,29 @@ test("tools/fingerprint.js (SETUP): a slot the setup doesn't give exits 1 once t
 	assert.equal(r.stdout.split("\n").filter(Boolean).length, 0, "no fingerprint line for the minute it failed in");
 });
 
+
+// get_browser_data()'s keys, read from the game's main.js (an upstream change to them shows here)
+function browserKeys() {
+	const src = fs.readFileSync(path.join(ROOT, "main.js"), "utf8"),
+		body = src.slice(src.indexOf("async function get_browser_data"));
+	return [...body.slice(body.indexOf("return {"), body.indexOf("};")).matchAll(/^\s*(\w+):/gm)].map((m) => m[1]);
+}
+
+for (const threads of [false, true])
+	test(`the client's G (${threads ? "client threads" : "single-thread"}) is what /data.js serves: its keys, the design's tables (drops, upgrades, compounds, monster_gold), items and monsters as designed`, { skip, timeout: 120000 }, async () => {
+		const { sim, c } = await boot(threads, "", {});
+		try {
+			const g = JSON.parse(await c.query(`JSON.stringify({ keys: Object.keys(G), drops: !!G.drops && !!G.drops.monsters, upgrades: !!G.upgrades && !!G.compounds, gold: !!G.monster_gold,
+				hpot0: Object.keys(G.items.hpot0), goo: "c" in G.monsters.goo, version: G.version })`));
+			const keys = browserKeys();
+			assert.deepEqual(g.keys.slice(0, keys.length), keys);
+			assert.deepEqual(g.keys.slice(keys.length), ["quests", "base_gold"]); // (the client's own: old_common_functions.js, game.js's welcome)
+			assert.ok(g.drops && g.upgrades && g.gold);
+			// the server's own fields aren't there (the client adds charge, max_hp, buy, id, xcx itself: process_game_data)
+			assert.ok(!g.hpot0.some((k) => ["igrade", "igrace", "a"].includes(k)), "items as designed: " + g.hpot0);
+			assert.equal(g.goo, false);
+			assert.equal(g.version, sim.server.G.version);
+		} finally {
+			await sim.close();
+		}
+	});
