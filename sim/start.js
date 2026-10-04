@@ -48,18 +48,29 @@ async function startSetup(resolved, bundles, { live, record, quiet, root } = {})
 		const { over, user, ...rest } = o;
 		logins.push({ ...rest, fx: sim.createCharacter({ name: c.name, type: c.class, over, account: c.account, user }), code: b.text, files: b.files, codeOf: slotOf(b) });
 	}
-	// an account age_days old: the user and its characters created then, and the age each character keeps
-	// (info.p.encouragement, as live saves it); before any character logs in
+	// before any character logs in: a linked account (Steam, MAS) has its pid on the user and its characters as the
+	// game's update_pids leaves them (its logins get an auth id: the Newcomers' Blessing's check, the per-IP
+	// allowance; "claimed": the auth mark exists, so no blessing); an account age_days old: the user and its characters
+	// created then, and the age each character keeps (info.p.encouragement, as live saves it, grouped by pid if linked)
 	for (const [k, a] of Object.entries(resolved.accounts)) {
 		const age = ageOf(a, sim.clock.nowMs()),
-			acc = sim.accounts && sim.accounts.get(k);
-		if (!age || !acc) continue;
-		const doc = (id) => sim.env.db.collection(sim.env.kindOf(id)).store.get(id),
+			acc = sim.accounts && sim.accounts.get(k),
+			L = a.linked;
+		if (!acc || (!age && !L)) continue;
+		const db = (id) => sim.env.db.collection(sim.env.kindOf(id)).store,
+			doc = (id) => db(id).get(id),
 			user = doc(acc.user_id);
+		if (L) {
+			Object.assign(user, { pid: L.pid, platform: L.platform });
+			for (const e of user.info.characters) Object.assign(doc(e.id), { pid: L.pid, platform: L.platform }), ((doc(e.id).info.p ||= {})[L.platform === "steam" ? "steam_id" : "mas_auth_id"] = L.pid);
+			const mark = "MK_auth-" + L.pid;
+			if (L.newcomer === "claimed") db(mark).set(mark, { _id: mark, type: "auth", phrase: L.pid, owner: acc.user_id, created: new Date(sim.clock.nowMs()) });
+		}
+		if (!age) continue;
 		user.created = new Date(age.created);
 		for (const e of user.info.characters) {
 			const ch = doc(e.id);
-			(ch.info.p ||= {}).encouragement = { group: "owner:" + acc.user_id, oldest: age.oldest, return_until: 0 };
+			(ch.info.p ||= {}).encouragement = { group: L ? "pid:" + L.pid : "owner:" + acc.user_id, oldest: age.oldest, return_until: 0 };
 			ch.created = new Date(age.created);
 		}
 	}

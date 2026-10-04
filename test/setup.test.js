@@ -188,7 +188,7 @@ test("at most 3 besides merchants in game from one IP, whatever their accounts",
 			}
 		};
 	assert.deepEqual(problems([...chars(3), { name: "M1", class: "merchant", account: "a" }, { name: "M2", class: "merchant", account: "b" }]), []);
-	assert.deepEqual(problems(chars(4)), ["4 characters besides merchants in game at the start (C0, C1, C2, C3): the game lets 3 play from one IP, whatever their accounts, and a run's characters all play from one (put the others online: false)"]);
+	assert.deepEqual(problems(chars(4)), ["4 characters besides merchants in game at the start (C0, C1, C2, C3): the game lets 3 play from one IP (a Steam- or MAS-linked account's: 36, 3 per link), whatever their accounts, and a run's characters all play from one: C3 would be refused (put them online: false)"]);
 	assert.deepEqual(problems([...chars(3), { name: "C3", class: "ranger", account: "b", online: false }]), []);
 });
 
@@ -576,4 +576,43 @@ test("server state on a real sim: state.p reaches the server's player (grace, tr
 	} finally {
 		await sim.close();
 	}
+});
+
+test("linked accounts: validated, a fixed pid per account; the per-IP rule lets a linked account's fighters past 3 (3 per link)", () => {
+	const d = layout();
+	const lo = (accounts, characters) => S.loadSetup(setupFile(d, { defaults: { code: { file: "farm.js" } }, accounts, characters }), { G });
+	const s = lo({ a: { linked: { platform: "steam" } }, b: { linked: { platform: "mas", pid: "m-1", newcomer: "claimed" } } }, [{ name: "A", class: "ranger", account: "a" }, { name: "B", class: "ranger", account: "b" }]);
+	assert.match(s.accounts.a.linked.pid, /^7656119\d{10}$/);
+	assert.equal(lo({ a: { linked: { platform: "steam" } } }, [{ name: "A", class: "ranger", account: "a" }]).accounts.a.linked.pid, s.accounts.a.linked.pid); // (fixed per account)
+	assert.deepEqual(s.accounts.b.linked, { platform: "mas", pid: "m-1", newcomer: "claimed" });
+	assert.throws(() => lo({ a: { linked: { platform: "epic" } } }, [{ name: "A", class: "ranger", account: "a" }]), /linked\.platform/);
+	// 3 web fighters on 2 accounts + 3 linked ones: allowed; a 4th web one after them: refused
+	const fighters = (n, acc) => Array.from({ length: n }, (_, i) => ({ name: acc + i, class: "ranger", account: acc }));
+	lo({ w: {}, x: {}, l: { linked: { platform: "steam" } } }, [...fighters(2, "w"), ...fighters(1, "x"), ...fighters(3, "l")]);
+	assert.throws(() => lo({ w: {}, x: {}, l: { linked: { platform: "steam" } } }, [...fighters(3, "l"), ...fighters(2, "w"), ...fighters(1, "x")]), /w0, w1, x0 would be refused/);
+});
+
+test("linked accounts on a real sim: a new Steam-linked account's first character gets the Newcomers' Blessing; claimed or web: none", { timeout: 180000 }, async (t) => {
+	const { config } = require("../lib/config");
+	if (!fs.existsSync(path.join(config().al_root, "design"))) return t.skip(`no game at ${config().al_root}`);
+	const { startSetup } = require("../sim/start");
+	const d = layout();
+	const one = async (linked) => {
+		const { resolved, bundles } = S.resolveSetup(S.loadSetup(setupFile(d, {
+			world: { threads: false }, accounts: { main: { ...(linked ? { linked } : {}) } },
+			characters: [{ name: "Ran", class: "ranger", account: "main", at: "main:0:0", code: { file: "farm.js" } }],
+		})));
+		const { sim } = await startSetup(resolved, bundles, { live: false });
+		try {
+			await sim.run(15000); // (the server's first-login loop: the auth mark, then dt.first, then the aura, a pass each)
+			const p = Object.values(sim.server.players).find((x) => x.name === "Ran");
+			return { first: p.p.first, blessing: !!(p.paura && p.paura.newcomersblessing), auth: p.auth_id || null };
+		} finally {
+			await sim.close();
+		}
+	};
+	const steam = await one({ platform: "steam", pid: "76561190000000001" });
+	assert.deepEqual(steam, { first: true, blessing: true, auth: "76561190000000001" });
+	assert.deepEqual(await one({ platform: "steam", pid: "76561190000000002", newcomer: "claimed" }), { first: false, blessing: false, auth: "76561190000000002" });
+	assert.deepEqual(await one(null), { first: undefined, blessing: false, auth: null });
 });
