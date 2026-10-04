@@ -640,13 +640,14 @@ class Live {
 				} catch (e) {}
 				return r;
 			});
-		// successful skill uses (casts); the merchant's mluck by target
+		// successful skill uses (casts); the merchant's mluck by target. A reuse call is not a use: the server starts a
+		// reuse_cooldown later with it (invis on reappearing, pickpocket/fishing/mining on a success)
 		hook("consume_skill", (orig) =>
-			function (player, name) {
+			function (player, name, reuse) {
 				const r = orig.apply(this, arguments);
 				try {
 					const m = player && live.mx[player.name];
-					if (m && name) {
+					if (m && name && !reuse) {
 						inc(m.casts, name, 1);
 						const q = live.req,
 							t = name === "mluck" && q && q.p === player && q.data && S.players[S.id_to_id[q.data.id]];

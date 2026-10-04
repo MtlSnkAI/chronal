@@ -191,7 +191,7 @@ merchant: { name, trips: [ { t_out, t_back, met, served } ], per_fighter: { <fig
 | `buffs` | `{ lonewolf, mluck, xpm, goldm, luckm }`: shares of the measured time with Lone Wolf and with mluck, the multipliers now |
 | `alive_ms`, `combat_ms` | ms alive, ms in combat (a hit, miss or heal dealt or received within the last 3 s) |
 | `credits` | kill credits (the server's count; merchants in a party get them too) |
-| `casts` | `{ skill: n }`: successful uses |
+| `casts` | `{ skill: n }`: successful uses (a reuse cooldown that starts later, on reappearing from invis or on a pickpocket, fishing or mining success, is not another use) |
 | `dmg` | `done { raw, net }`; `by_skill { k: { raw, net, hits, crits, misses, casts } }`; `by_target { type: { raw, net, hits } }`; `taken { raw, net }`; `taken_by { cause: { raw, net, hits } }` (cause: monster type, player, `burn`, `dreturn`, `reflect`...; hits include fully absorbed ones); `taken_mp` (the mana shield's part); `avoided { miss, evade, avoid }`; `overkill` = done raw - net. Its own damage return counts as damage done (`dreturn`) |
 | `heal` | `done`, `by_skill` (with `casts`), `by_target`, `received`, `received_by { <healer's name> | <potion> | regen_hp | lifesteal: { raw, net, hits } }`, `overheal` = done raw - net |
 | `mana` | `spent`, `by_skill { skill: mp }`, `gained { pots, regen, steal, other }` (net) |
