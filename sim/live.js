@@ -1045,8 +1045,12 @@ class Live {
 		else if (r.used === "mp" && p.mp > r.mp) m.mana.gained.regen += p.mp - r.mp;
 		// upgrade/compound: rolled at request time (the item comes back or not when the queue ends); grace offerings aren't rolls
 		if (r.method === "upgrade" && p.q && p.q.upgrade && p.q.upgrade !== r.qu && p.p && p.p.u_type !== "offering") {
-			const it = p.p.u_item || p.p.u_itemx;
-			if (it) {
+			const it = p.p.u_item || p.p.u_itemx,
+				ph = p.items && p.items[p.q.upgrade.num];
+			// an ingot or a nugget with no scroll: a roll to make the item shiny, its level unchanged (not an upgrade)
+			if (it && ph && ph.name === "placeholder" && ph.p && ph.p.scroll === null && ph.p.offering)
+				this.itemEvent({ k: "shiny", who: p.name, item: it.name, level: it.level || 0, offering: ph.p.offering, ok: !p.p.u_fail });
+			else if (it) {
 				const u = m.items.upgraded[it.name] || (m.items.upgraded[it.name] = { ok: 0, fail: 0, lost: 0 }), ok = !!p.p.u_item && !p.p.u_fail, lv = it.level || 0;
 				ok ? u.ok++ : u.fail++;
 				if (!p.p.u_item) u.lost++;

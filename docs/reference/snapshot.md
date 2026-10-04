@@ -238,6 +238,8 @@ on, `t` measured s, `k` its kind, `who` the character:
 - `loot`: `item`, `level` (when it has one), `q`;
 - `upgrade`, `compound`: `item`, `from` and `to` (the levels tried), `ok`, `lost` (an upgrade's item gone);
 - `stat`: a stat scroll's: `item`, `stat`, `ok`;
+- `shiny`: an ingot's or a nugget's roll on an item with no scroll (its level stays): `item`, `level`, `offering`, `ok`
+  (shiny);
 - `give`: a handover: `to`, `item`, `level`, `q`; `gold`: `to`, `amount`.
 
 Only appended to; past 16 MB a last `{ t, k: "cap" }` and no more (`capped`). The events add up to the ledgers
