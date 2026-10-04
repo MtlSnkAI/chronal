@@ -243,7 +243,7 @@ const STAT = `({ l: character.level, xp: character.xp, max: character.max_xp, g:
 	deaths: (window.game_logs || []).filter((x) => /Defeated by/.test(x[0])).length,
 	kills: (window.game_logs || []).filter((x) => new RegExp("^(You|" + character.name + ") killed ").test(x[0])).length,
 	free: character.esize, hp: (character.items.find((i) => i && i.name == "hpot0") || { q: 0 }).q,
-	slots: Object.fromEntries(Object.entries(character.slots).filter(([k, v]) => v && !k.startsWith("trade")).map(([k, v]) => [k, v.name + "+" + (v.level || 0)])),
+	slots: Object.fromEntries(Object.entries(character.slots).filter(([k, v]) => v && !k.startsWith("trade")).map(([k, v]) => [k, { name: v.name, level: v.level, stat_type: v.stat_type }])),
 	mode: ${modeExpr} })`;
 // a character's stats and party at the end (chronal run --result fields)
 const STATS = `({ name: character.name, ctype: character.ctype, str: character.str, dex: character.dex, int: character.int, vit: character.vit,

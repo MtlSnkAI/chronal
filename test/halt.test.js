@@ -190,7 +190,9 @@ test("chronal run's warm-up is played, not measured: the snapshot's base (0:00) 
 	assert.ok(s.measured_ms > 3 * 60e3 - 200 && s.measured_ms <= 3 * 60e3, String(s.measured_ms));
 	assert.ok(s.virtual_ms >= 5 * 60e3 - 200, String(s.virtual_ms));
 	// the CLI's (and --result's) numbers are the snapshot's
-	assert.deepStrictEqual([p.kills, p.deaths, p.xp_gained], [res.characters.Ran1.kills, res.characters.Ran1.deaths, res.characters.Ran1.xp]);
+	assert.deepStrictEqual([p.kills, p.deaths, p.xp_gained, p.xp, p.gear, p.gear_stat], [res.characters.Ran1.kills, res.characters.Ran1.deaths, res.characters.Ran1.xp_gained, res.characters.Ran1.xp, res.characters.Ran1.gear, res.characters.Ran1.gear_stat]);
+	// (mult_avg read as the run ends; the final snapshot samples once more)
+	for (const [k, v] of Object.entries(p.mult_avg)) assert.ok(Math.abs(res.characters.Ran1.mult_avg[k] - v) < 0.01, `mult_avg.${k} ${res.characters.Ran1.mult_avg[k]} vs ${v}`);
 	// steering at its times from the measured part's start; the grid from 0:00
 	assert.deepStrictEqual(s.steer.map((e) => Math.round(e.t)), [0, 60]);
 	assert.ok(grid[1].t === 0 && grid[grid.length - 1].t === 180, JSON.stringify([grid[1].t, grid[grid.length - 1].t]));

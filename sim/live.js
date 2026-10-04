@@ -2002,4 +2002,4 @@ function liveOf(sim, o) {
 	}
 }
 
-module.exports = { Live, liveOf, reserveId, HISTORY_COLS, GRID_COLS, STATS, GEAR };
+module.exports = { Live, liveOf, reserveId, gearOf, HISTORY_COLS, GRID_COLS, STATS, GEAR };
