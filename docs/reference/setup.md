@@ -53,7 +53,7 @@ CODE), the party, the accounts (bank, age, browser storage), the world, the run'
 | `age` | `"0m"` | game time the world runs with no characters before they log in |
 | `ping` | `18` | the round trip to the server in ms, as the game's `character.ping` |
 | `start` | `"2026-01-01T00:00:00Z"` | the world's clock as it boots, a time with its zone (UTC: `Z`) |
-| `seasons` | `[]` | the server's season switches on: `holidayseason`, `lunarnewyear`, `valentines`, `halloween`, `egghunt` |
+| `seasons` | `[]` | the server's season switches: `holidayseason`, `lunarnewyear`, `valentines`, `halloween`, `egghunt` on from the start, or `{ "season", "from", "to" }` between game times after the warm-up (either may be left out). A switch is what the server does for it at boot (its global drops, jr's respawn, the snowman and pinkgoo timers), done and undone as the run goes; its event monsters already up stay. A season's windows don't overlap |
 | `ugrace` | `null` | the server's upgrade grace per level (`S.ugrace`, at the level an upgrade goes to; the grace formula takes `min(6, ugrace / 3)`): `null` a new realm's (24 at every level, the sim's every boot; a live realm carries what its players' upgrades make of it), a number, a list per level 0-24, or `{ "<level>": n }` over the 24s. Upgrades only: compounds have no server-wide grace |
 | `ugrace_fixed` | `false` | `true`: held at those values (a busy realm's steady state: other players' upgrades keep it there) |
 | `anniversary` | `true` | the anniversary event (the game server ships it on, "until manually disabled"): its baker on main, the anniversarygift and slice drops; `false`: none |

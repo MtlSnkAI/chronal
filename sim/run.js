@@ -255,6 +255,20 @@ const main = (argv) => (async () => {
 		await sim.run(warm);
 	}
 	steer.start();
+	// the seasons' switches (world.seasons with times: sim/seasons.js), at their game times from here, each marked in the
+	// snapshot (a season on from the boot is on already)
+	const { seasonOn, seasonOff } = require("./seasons");
+	for (const x of resolved.world.seasons || []) {
+		if (typeof x === "string") continue;
+		const flip = (on, at) =>
+			sim.clock.at(sim.clock.now + parseDuration(at), () => {
+				const did = on ? seasonOn(sim.server, x.season, sim.env.seasons, sim.env.root) : seasonOff(sim.server, x.season, sim.env.seasons);
+				if (did && sim.live) sim.live.season(x.season, on);
+				if (did) console.log(`season ${x.season} ${on ? "on" : "off"} at ${at}`);
+			});
+		if (x.from != null) flip(true, x.from);
+		if (x.to != null) flip(false, x.to);
+	}
 	// the forced dailies and nightlies (world.events): at their game times from here, set as the server's own schedule
 	// sets them (its var events), each marked in the snapshot
 	for (const e of resolved.world.events || [])

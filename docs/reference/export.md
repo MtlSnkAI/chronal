@@ -26,8 +26,9 @@ The format live exports have (`snippets/export-state.js`, `chronal pull`), with 
 
 ## `index.json`
 
-`{ format: "chronal-state/1", label, at, run, seed, characters: [{ name, class, account }], accounts: { <key>: { bank_from,
-age_days, cash, linked, newcomer_claimed } } }`; `bank_from` the file of the account's that carries its bank.
+`{ format: "chronal-state/1", label, at, run, seed, seasons_on, characters: [{ name, class, account }], accounts: { <key>:
+{ bank_from, age_days, cash, linked, newcomer_claimed } } }`; `seasons_on`: the seasons on then (`chronal continue`'s, unless
+`--seasons`); `bank_from` the file of the account's that carries its bank.
 
 ## What a continuation doesn't have
 
