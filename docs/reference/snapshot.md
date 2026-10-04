@@ -20,7 +20,9 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `code/<sha16>.json`, `code/<sha16>.js` | the CODE store (section 9) | once per content, shared by the dir's runs |
 
 - `<id>` is the tag with every run of characters other than letters, digits, `_`, `.` and `-` replaced by `_` (at
-  most 80), `--`, and the start time in ms: `/^[\w.-]+--\d+$/`. Only `*--<digits>.json` files are runs.
+  most 80), `--`, and the start time in ms: `/^[\w.-]+--\d+$/`. Only `*--<digits>.json` files are runs. The run
+  reserves its `<id>.json` with an exclusive create: when a running or removed run has that id (the same tag started in
+  the same ms), the digits go up by one until one is free, so they are the start ms plus the runs that took it before.
 - The dashboard's own files: `.dash.json` (card settings), `.launches.json` (launch registry), `.remove-when-done.json`;
   directories `removed/` (removed runs, with their grid, ctl, setup files and recordings; the CODE store stays), `logs/` (sim
   launch logs), `.launch/` (New sim's setup files of launches).

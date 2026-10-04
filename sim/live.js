@@ -290,6 +290,21 @@ function onExit(code) {
 			} catch (e) {}
 }
 
+// A run's id: its tag and its start (ms), or the next ms after it that is free in dir: an exclusive create of
+// <id>.json (two runs of one tag that start in the same ms never share files) that no removed run had
+function reserveId(dir, base, t) {
+	for (; ; t++) {
+		const id = base + "--" + t;
+		if (fs.existsSync(path.join(dir, "removed", id + ".json"))) continue;
+		try {
+			fs.closeSync(fs.openSync(path.join(dir, id + ".json"), "wx"));
+			return id;
+		} catch (e) {
+			if (e.code !== "EEXIST") throw e;
+		}
+	}
+}
+
 class Live {
 	constructor(sim, { dir, tag, every = 1000, setup = null } = {}) {
 		this.sim = sim;
@@ -300,7 +315,8 @@ class Live {
 		this.setup = rs ? setup : null;
 		this.started = Date.now();
 		this.tag = String(tag || `${script} s${rs ? rs.run.seed : sim.seed}`);
-		this.id = this.tag.replace(/[^\w.-]+/g, "_").slice(0, 80) + "--" + this.started;
+		fs.mkdirSync(this.dir, { recursive: true });
+		this.id = reserveId(this.dir, this.tag.replace(/[^\w.-]+/g, "_").slice(0, 80), this.started);
 		this.file = path.join(this.dir, this.id + ".json");
 		// run control: the dashboard's requests (ack: the last seq applied), how it ended, how to run it again
 		this.ctl = path.join(this.dir, this.id + ".ctl");
@@ -388,7 +404,6 @@ class Live {
 			};
 		}
 		this.setupKey();
-		fs.mkdirSync(this.dir, { recursive: true });
 		if (rs) {
 			// the resolved setup beside the snapshot, its CODE in the store (content-addressed, written once)
 			SETUP.storeBundles(setup.bundles, path.join(this.dir, "code"));
@@ -1886,4 +1901,4 @@ function liveOf(sim, o) {
 	}
 }
 
-module.exports = { Live, liveOf, HISTORY_COLS, GRID_COLS, STATS, GEAR };
+module.exports = { Live, liveOf, reserveId, HISTORY_COLS, GRID_COLS, STATS, GEAR };
