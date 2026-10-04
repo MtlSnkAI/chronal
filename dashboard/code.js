@@ -178,7 +178,7 @@ async function write(b) {
 	return [200, { problems, saved: { mode, set: name, commit: res.commit, trusted: res.commit ? LIB.trusted(res.commit) : null, ...(mode === "copy" ? { from: s.name } : {}) } }];
 }
 
-/** GET api/code/runs?set=: the runs (of the live dir's setup files) that ran this set: its name chosen, or its folder */
+/** GET api/code/runs?set=: the runs (of the live dir's setup files, its folders' too) that ran this set: its name chosen, or its folder */
 function runs(q, dir) {
 	const s = setOf(q.get("set") || "");
 	if (!s) return [404, { reason: `no CODE set ${q.get("set")}` }];
@@ -186,10 +186,11 @@ function runs(q, dir) {
 		roots = [s.code.dir, s.code.file, s.code.git && s.code.git.repo].filter(Boolean).map((p) => path.resolve(p)),
 		under = (p) => p && roots.some((r) => path.resolve(p) === r || path.resolve(p).startsWith(r + path.sep));
 	const out = [];
-	let fsx = [];
-	try {
-		fsx = fs.readdirSync(dir).filter((f) => f.endsWith(".setup.json"));
-	} catch (e) {}
+	const fsx = [];
+	for (const { sub, dir: d } of require("../lib/runs").liveDirs(dir))
+		try {
+			fsx.push(...fs.readdirSync(d).filter((f) => f.endsWith(".setup.json")).map((f) => (sub ? sub + "/" : "") + f));
+		} catch (e) {}
 	for (const f of fsx) {
 		let x;
 		try {

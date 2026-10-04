@@ -106,6 +106,24 @@ test("chronal ps / stop on a live dir: running runs only, by id, by tag (several
 	assert.equal(a.signalCode, null, "no other process signalled");
 });
 
+test("chronal ps / stop: a folder's runs (one level down) as <folder>/<id>, by that id or the snapshot's path", async () => {
+	const dir = tmp(),
+		fid = path.join(dir, "fid"),
+		a = sleeper(),
+		now = new Date().toISOString();
+	await until(() => RUNS.procStart(a.pid));
+	for (const d of [fid, path.join(dir, "removed"), path.join(fid, "deeper")]) {
+		fs.mkdirSync(d, { recursive: true });
+		fs.writeFileSync(path.join(d, "x--1.json"), JSON.stringify({ tag: "x", started: now, updated: now, proc: procOf(a), control: { file: "x--1.ctl", stop: true, ack: 0 } }));
+	}
+	assert.deepEqual(chronal("ps", "--dir", dir).stdout.trim().split("\n").map((l) => l.split(/\s+/)[0]), ["fid/x--1"]);
+	assert.match(chronal("stop", "fid/x--1", "--dir", dir).stdout, /fid\/x--1: stop asked \(seq 1\)/);
+	assert.match(chronal("stop", path.join(fid, "x--1.json"), "--dir", dir).stdout, /fid\/x--1: stop asked \(seq 2\)/);
+	assert.equal(read(path.join(fid, "x--1.ctl")).seq, 2);
+	assert.equal(chronal("stop", "x--1", "--dir", dir).status, 1);
+	assert.ok(!fs.existsSync(path.join(dir, "x--1.ctl")) && !fs.existsSync(path.join(dir, "removed", "x--1.ctl")));
+});
+
 // a ranger on codes/idle.js in a live dir (or none) for 240 game minutes; resolves with its exit
 const longRun = (dir, extra, started) =>
 	new Promise((resolve) => {

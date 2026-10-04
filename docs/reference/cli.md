@@ -146,7 +146,7 @@ chronal new --chars Ranger,Priest --storage mode='"farm"' --steer '20m mode="bos
 chronal ps [--dir LIVE] [--all]
 ```
 
-The runs running in the live dir (default: config `live_dir`): id, state (`running`; `stalled`: its process runs, no
+The runs running in the live dir (default: config `live_dir`) and its folders (`<folder>/<id>`): id, state (`running`; `stalled`: its process runs, no
 snapshot for 15 s), pid, speed, game minutes, tag. `--all`: every run (also `done`, `stopped`, `failed`).
 
 ## chronal stop
@@ -166,7 +166,7 @@ no run matches or one couldn't be asked or signalled.
 
 ```
 chronal dash [--port 8089] [--host 127.0.0.1] [--dir LIVE]
-chronal dash --gc-code [--dir LIVE]        # delete the CODE in <dir>/code/ that no setup file uses
+chronal dash --gc-code [--dir LIVE]        # delete the CODE in <dir>/code/ (and each folder's) that no setup file uses
 ```
 
 From another machine: `ssh -N -L 8089:localhost:8089 <user>@<this machine>`, then http://localhost:8089/.

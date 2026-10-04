@@ -24,6 +24,9 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
   most 80), `--`, and the start time in ms: `/^[\w.-]+--\d+$/`. Only `*--<digits>.json` files are runs. The run
   reserves its `<id>.json` with an exclusive create: when a running or removed run has that id (the same tag started in
   the same ms), the digits go up by one until one is free, so they are the start ms plus the runs that took it before.
+- The dashboard, `chronal ps` and `chronal stop` read the live dir and its folders one level down (not `removed/`,
+  `logs/`, `code/`, `<id>.rec/`, `<id>.state/`): a folder's run is `<folder>/<id>` (in a URL `<folder>%2F<id>`), its
+  CODE store `<folder>/code/`, its removed runs `<folder>/removed/`.
 - The dashboard's own files: `.dash.json` (card settings), `.launches.json` (launch registry), `.remove-when-done.json`;
   directories `removed/` (removed runs, with their grid, ctl, setup files and recordings; the CODE store stays), `logs/` (sim
   launch logs), `.launch/` (New sim's setup files of launches).
