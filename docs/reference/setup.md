@@ -132,7 +132,7 @@ farm }]`; anything else passes through to the CODE.
 | key | default | |
 |---|---|---|
 | `age_days` | `0` | 0 = created at the run's start, so New Player (x5 xp at first, 40 days in 10-day phases, ends at L80) as a new player gets it; N = created N days before; from 40 on no New Player |
-| `bank` | a new account's | `{ "from": <export> }` (its bank gold and packs) or `{ "gold": 5000, "items0": [], ... }`; none: 1000 gold, two empty packs |
+| `bank` | a new account's | `{ "from": <export> }` (its bank gold, packs, `unlocked` rooms and claimed `rewards`; other keys are left out, with a warning) or `{ "gold": 5000, "items0": [], ..., "unlocked": { "bank_b": true }, "rewards": [] }`; none: 1000 gold, two empty packs. A bank with packs in `bank_b` (items8-23) or `bank_u` (items24+) gets that room unlocked (an API pull's has no `unlocked`) |
 | `storage` | `{}` | what the CODE's `get(key)` returns at the start; `null` unsets |
 | `local_storage` | `{}` | raw `localStorage` keys (text) |
 

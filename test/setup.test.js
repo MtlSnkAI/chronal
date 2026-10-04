@@ -210,6 +210,24 @@ test("accounts: accountUser (flags, the bank from an export or inline, none), ag
 	assert.deepEqual(S.ageOf(resolved.accounts.b, 1e12), { created: 1e12 - 1.5 * 86400e3, oldest: 1e12 - 1.5 * 86400e3 });
 });
 
+test("bank: from an export it keeps unlocked and rewards, notes the keys it leaves out; packs in bank_b/bank_u unlock those rooms; inline unlocked/rewards", () => {
+	const d = layout();
+	write(d, "Pulled.json", JSON.stringify({ ...EXP, bank: { gold: 9, items0: [], items8: [{ name: "y" }], items24: [], rewards: ["c0"], shells: 40 } }));
+	write(d, "Unl.json", JSON.stringify({ ...EXP, bank: { gold: 1, items8: [], unlocked: { bank_b: "2026-01-01T00:00:00.000Z" } } }));
+	const s = S.loadSetup(setupFile(d, {
+		defaults: { code: { file: "farm.js" } },
+		accounts: { p: { bank: { from: "Pulled.json" } }, u: { bank: { from: "Unl.json" } }, i: { bank: { gold: 3, items9: [], unlocked: { bank_b: true }, rewards: [] } } },
+		characters: [{ name: "P", class: "ranger", account: "p" }, { name: "U", class: "ranger", account: "u" }, { name: "I", class: "ranger", account: "i" }],
+	}), { G });
+	const { resolved, warnings } = S.resolveSetup(s, { G });
+	assert.deepEqual(resolved.accounts.p.bank, { gold: 9, items0: [], items8: [{ name: "y" }], items24: [], rewards: ["c0"], unlocked: { bank_b: true, bank_u: true } });
+	assert.deepEqual(resolved.accounts.u.bank, { gold: 1, items8: [], unlocked: { bank_b: "2026-01-01T00:00:00.000Z" } });
+	assert.deepEqual(resolved.accounts.i.bank, { gold: 3, items9: [], unlocked: { bank_b: true }, rewards: [] });
+	assert.deepEqual(warnings, ["account p: bank.from Pulled.json: shells not taken (gold, items<N>, unlocked, rewards are)", "account p: bank bank_b, bank_u unlocked (it has packs there)"]);
+	assert.equal(S.accountUser(resolved.accounts.p).info.unlocked.bank_u, true);
+	assert.throws(() => S.loadSetup(setupFile(d, { defaults: { code: { file: "farm.js" } }, accounts: { x: { bank: { unlocked: ["bank_b"] } } }, characters: [{ name: "X", class: "ranger", account: "x" }] }), { G }), /bank\.unlocked/);
+});
+
 test("setupKey: the run knobs, name, strategy, notes and provenance don't count; states, CODE, world, party and the sim version do", () => {
 	const d = layout();
 	const r = (o = {}, ov) => S.resolveSetup(S.loadSetup(setupFile(d, { name: "x", characters: [{ name: "A", class: "ranger", code: { file: "farm.js" }, note: "n1" }], ...o }), { G, overrides: ov }), { G }).resolved;
