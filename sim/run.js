@@ -3,7 +3,7 @@
 // (docs/reference/setup.md).
 //   chronal run <setup.json | <id>.setup.json> [--duration 2h] [--warmup 2m] [--world-age 2h] [--ping 18] [--seed N] [--start ISO]
 //              [--age-days N] [--tag T] [--live DIR | --no-live] [--result out.json] [--no-build] [--current-code]
-//              [--record] [--check] [--code-set NAME [--missing NAME=SLOT|idle|exclude,...]] [--trust]
+//              [--record] [--check] [--code-set NAME [--missing NAME=SLOT|idle|exclude,...]] [--trust] [--export DIR | --no-export]
 //   chronal run --code my.js [--dir modules/] --class ranger [--name Ranger1] [--level 40] [--at main:0:0] [--farm squigtoad] [--duration 30m] [...]
 // <id>.setup.json: a run's resolved setup (beside its snapshot): the run again, with its stored CODE and states
 // (--current-code: the CODE its source gives now, build hook included). Live snapshots go to --live DIR, else config
@@ -20,6 +20,9 @@
 // Others' CODE (the CODE library's, lib/library.js) runs at a commit trusted here: one not trusted yet is shown (where
 // it comes from, what it reaches) and asked about on a terminal; --trust trusts it without asking; else the run stops.
 // --record: a replay recording per character beside the snapshot (<id>.rec/, docs/reference/recording.md).
+// The run's end state (sim/export.js: each character's chronal-export/1 with its bank, what chronal continue and a setup's
+// state.from / bank.from take) goes to <id>.state/end/ beside the snapshot, else --export DIR/end/ (also without live
+// snapshots); --no-export: none. The dashboard (and steering's export) can ask for one while it runs too.
 // The run: the world's age (world.age, --world-age: the server runs with no characters before they log in), the
 // warm-up, then the duration (or until run.until holds), the setup's steering at its times and conditions (start.js
 // steerer, lib/steer.js: run.until and the conditions checked every run.check (1 s) against the run's snapshot, so they
@@ -33,13 +36,14 @@ const { config } = require("../lib/config");
 const { codeSet, missingEntries, parseMissing, chooseMissing } = require("../lib/code_sets");
 const LIB = require("../lib/library");
 const { startSetup, steerer, STAT, STATS, xpTotal } = require("./start");
+const { endState, writeState } = require("./export");
 
 const USAGE = `usage: chronal run <setup.json | <id>.setup.json> [--duration 2h] [--warmup 2m] [--world-age 2h] [--ping 18] [--seed N] [--start ISO]
                   [--age-days N] [--tag T] [--live DIR | --no-live] [--result out.json] [--no-build] [--current-code]
-                  [--record] [--check] [--code-set NAME [--missing NAME=SLOT|idle|exclude,...]] [--trust]
+                  [--record] [--check] [--code-set NAME [--missing NAME=SLOT|idle|exclude,...]] [--trust] [--export DIR | --no-export]
        chronal run --code my.js [--dir DIR] --class ranger [--name N] [--level 40] [--at map:x:y] [--farm type[,type]] [--duration 30m] [...]`;
-const VALUE = ["--duration", "--warmup", "--world-age", "--seed", "--age-days", "--ping", "--start", "--code-set", "--missing", "--tag", "--live", "--result", "--code", "--dir", "--class", "--name", "--level", "--at", "--farm"],
-	FLAG = ["--no-live", "--no-build", "--current-code", "--record", "--check", "--trust", "--help"];
+const VALUE = ["--duration", "--warmup", "--world-age", "--seed", "--age-days", "--ping", "--start", "--code-set", "--missing", "--tag", "--live", "--result", "--code", "--dir", "--class", "--name", "--level", "--at", "--farm", "--export"],
+	FLAG = ["--no-live", "--no-build", "--current-code", "--record", "--check", "--trust", "--help", "--no-export"];
 
 function usage(msg) {
 	if (msg) console.error("chronal run: " + msg);
@@ -220,14 +224,23 @@ const main = (argv) => (async () => {
 	console.log(`${resolved.name}: boot + ${age ? `world age ${age / 60e3} min + ` : ""}login ${Math.round(performance.now() - t0)} ms | ping ${resolved.world.ping} ms | ${setup.code_set ? `CODE set ${setup.code_set.name} | ` : ""}${resolved.characters.map((c) => `${c.name} (${c.class} L${c.state.level}, ${c.code.entry} ${c.code.hash})`).join(", ")}${resolved.party && resolved.party.form === "harness" ? " | party" : ""}`);
 	if (sim.live) console.log(`live: ${sim.live.file}\nsetup: ${path.join(sim.live.dir, sim.live.meta.setup.file)}`);
 	if (sim.live) sim.live.plan({ duration_ms: duration, warmup_ms: warm, until: run.until });
+	// the run's state as exports (sim/export.js): at the end, and when the dashboard or a steering entry asks
+	const stateDir = o["no-export"] ? null : o.export ? path.resolve(o.export) : sim.live ? path.join(sim.live.dir, sim.live.id + ".state") : null;
+	const exportState = async (label) => {
+		if (!stateDir) return null;
+		const st = await endState(sim, resolved, { label, run: sim.live ? sim.live.id : null, seed: run.seed, setupKey: sim.live ? sim.live.meta.setup_key : null }),
+			dir = writeState(stateDir, st);
+		if (sim.live) sim.live.exported(label, st.at, dir);
+		return dir;
+	};
 	// the setup's steering, at its times from the measured part's start (after the warm-up)
-	const steer = steerer(sim, resolved, { log: (e) => console.log(`steer ${e.why}${e.character ? " @" + e.character : ""} ${e.what}: ${[...e.did, ...e.errors.map((x) => "not run: " + x)].join(", ") || "nothing"}`) });
+	const steer = steerer(sim, resolved, { exportState, log: (e) => console.log(`steer ${e.why}${e.character ? " @" + e.character : ""} ${e.what}: ${[...e.did, ...e.errors.map((x) => "not run: " + x)].join(", ") || "nothing"}`) });
 	// --result: { seed, warm, minutes, vmin, speed, real_s, halted, setup, live, characters, fighter, merchant }
 	const result = ({ characters = {}, fighter = null, merchant = null, ...m }) => {
 		if (!o.result) return;
 		const f = path.resolve(o.result);
 		fs.mkdirSync(path.dirname(f), { recursive: true });
-		fs.writeFileSync(f, JSON.stringify({ seed: run.seed, warm: warm / 60e3, minutes: duration / 60e3, ...m, setup: sim.live ? path.join(sim.live.dir, sim.live.meta.setup.file) : null, live: sim.live ? sim.live.file : null, characters, fighter, merchant }, null, 1));
+		fs.writeFileSync(f, JSON.stringify({ seed: run.seed, warm: warm / 60e3, minutes: duration / 60e3, ...m, setup: sim.live ? path.join(sim.live.dir, sim.live.meta.setup.file) : null, live: sim.live ? sim.live.file : null, state: m.state ?? null, characters, fighter, merchant }, null, 1));
 	};
 	// failed (a CODE asked for a slot the setup doesn't give): ended "failed", no result
 	const failed = async () => {
@@ -253,7 +266,9 @@ const main = (argv) => (async () => {
 	// halted (a signal, the dashboard's Stop) before the measured part: nothing measured
 	if (sim.halted) {
 		console.log(`halted (${sim.halted}) before the measured part`);
-		result({ vmin: 0, speed: 0, real_s: 0, halted: true });
+		const state = await exportState("end");
+		if (state) console.log(`state: ${state}`);
+		result({ vmin: 0, speed: 0, real_s: 0, halted: true, state });
 		await sim.close();
 		process.exit(0);
 	}
@@ -308,7 +323,10 @@ const main = (argv) => (async () => {
 	}
 	const fighter = resolved.characters.find((c) => c.class !== "merchant"),
 		merchant = resolved.characters.find((c) => c.class === "merchant");
+	const state = await exportState("end");
+	if (state) console.log(`state: ${state}`);
 	result({
+		state,
 		vmin: res.virtualMs / 60e3, speed: res.speed, real_s: res.realMs / 1000, halted: !!sim.halted, characters, fighter: fighter ? characters[fighter.name] : null,
 		merchant: merchant ? { deaths: characters[merchant.name].deaths, map: characters[merchant.name].map, mode: characters[merchant.name].mode } : null,
 	});

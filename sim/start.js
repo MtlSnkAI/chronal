@@ -122,7 +122,7 @@ const STEER_CODE = (code) => `(function (s) { if (!window.code_active) return "i
  * too, and ends run() early when it holds (until: true).
  * -> { start(), run(ms, o) -> { virtualMs, realMs, speed, halted, until }, done, steering }
  */
-function steerer(sim, resolved, { log = () => {} } = {}) {
+function steerer(sim, resolved, { log = () => {}, exportState = null } = {}) {
 	const X = require("../lib/steer"),
 		S = new X.Steering(resolved.steer || [], { until: resolved.run && resolved.run.until, check: resolved.run && resolved.run.check }),
 		refs = S.refs,
@@ -175,6 +175,11 @@ function steerer(sim, resolved, { log = () => {} } = {}) {
 				if (no) out.errors.push(`${n}: ${no}`);
 				else out.did.push(`code ${n}`);
 			}
+		if (e.export != null) {
+			const dir = exportState ? await exportState(e.export) : null;
+			if (dir) out.did.push(`export ${e.export}`);
+			else out.errors.push("export: no state dir (--no-export)");
+		}
 		if (sim.live) sim.live.steered(out);
 		done.push(out);
 		log(out);
@@ -202,11 +207,16 @@ function steerer(sim, resolved, { log = () => {} } = {}) {
 						break;
 					}
 				}
+				// an export the dashboard asked for (live.js poll): between chunks, where the pages can be read
+				const want = sim.live && sim.live.exportWanted;
+				if (want && exportState && !sim.halted) await exportState(want.label);
+				else if (want) sim.live.exportWanted = null;
 				const next = Math.min(end, t0 + S.next(), S.waiting(until) ? t0 + nextCheck : Infinity);
 				if (next <= sim.clock.now || sim.halted) break;
-				const r = await sim.run(next - sim.clock.now);
+				const r = await sim.run(next - sim.clock.now, { stop: () => !!(sim.live && sim.live.exportWanted) });
 				(sum.virtualMs += r.virtualMs), (sum.realMs += r.realMs), (sum.halted = !!r.halted);
-				if (r.halted || sim.clock.now < next) break;
+				if (r.halted) break;
+				if (sim.clock.now < next && !(sim.live && sim.live.exportWanted)) break;
 			}
 			sum.speed = sum.virtualMs / Math.max(sum.realMs, 1e-9);
 			return sum;

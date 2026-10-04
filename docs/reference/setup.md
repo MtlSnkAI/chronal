@@ -128,7 +128,10 @@ character yet, so more than 5 online characters start a few game seconds apart, 
   `achievements`, `ap`, `firstbuff` (the holiday spirit taken), `encouragement_reached80`, `first`, `first_drop`, `dt`,
   `rewards`, `minutes`. Key by key over an export's tracker kill counts (the snippet exports them for a tracker holder).
 - `s`: its conditions at the start (`{ <condition>: { ms, ... } }`), e.g. an mluck.
-- Never taken from an export: conditions, the merchant stand, the upgrade queue.
+- A run's state export (`chronal run`'s `<id>.state/`, [state exports](export.md)) gives more: its server state (`p`,
+  the stand included), its conditions and its hp, mp and death, as the run had them (`state.p` and `state.s` still go
+  over them).
+- Never taken from another export: conditions, the merchant stand. Never from any: the upgrade queue.
 
 **params** standard keys: `farm: { map, x, y, monsters: [types] }` (the example bot reads it), `path: [{ to: level,
 farm }]`; anything else passes through to the CODE.
@@ -234,6 +237,7 @@ clicks on a control panel while it runs.
 | `after` | fire after each firing of that step (`at` later) |
 | `character` | whose CODE / account; none: everyone's |
 | `storage`, `local_storage`, `code` | what it does |
+| `export` | a label: the run's state now to `<id>.state/<label>/` ([state exports](export.md)) |
 | `note` | free text |
 
 A character not in game, or whose CODE isn't running, is reported. Each firing goes to the snapshot's `steer`, and the

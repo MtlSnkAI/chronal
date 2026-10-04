@@ -43,7 +43,8 @@ columns (**Columns**: 32 metrics in 7 groups, saved for every page on that live 
 start. **Remove finished** moves every finished and stopped run to `live/removed/`.
 
 **A run's page:** its seed, state, short label and rank, then its actions: **Replay** (a recorded run), **Rerun**,
-**Stop run** (running), **Remove** (to `live/removed/`; a running run is stopped first). Its tabs:
+**Stop run** and **Export state** (running: every character's state now to `<id>.state/`, [state exports](export.md)),
+**Remove** (to `live/removed/` with its state exports; a running run is stopped first). Its tabs:
 - **Characters**: a sheet per character as the game shows it (HP, MP and XP bars, gear with the game's tooltips,
   conditions, stats; More,
   Inventory, Game log folds); with the replay shown they follow the replay's moment. Below, Items (from the run's

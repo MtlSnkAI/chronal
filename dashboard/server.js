@@ -50,7 +50,7 @@ const STALE_MS = 15_000,
 	VIEWER_IDLE_MS = 5 * 60e3, // the viewer's backend unused this long: closed
 	HOST = os.hostname(),
 	RUN_FILE = /^[\w.-]+--\d+\.json$/, // a run's snapshot; anything else in the live dir is a side file or a dot file
-	SIDE = [".json", ".grid.ndjson", ".items.ndjson", ".ctl", ".setup.json", ".rec"], // a run's files, moved together (.rec: its replay recordings, a dir)
+	SIDE = [".json", ".grid.ndjson", ".items.ndjson", ".ctl", ".setup.json", ".rec", ".state"], // a run's files, moved together (.rec: its replay recordings, .state: its state exports; dirs)
 	ON = new Set(["running", "stalled"]),
 	RANK = { running: 0, stalled: 0, stopped: 1, failed: 1, done: 2 },
 	ACTIVE = new Set(["queued", "starting", "running"]);
@@ -362,6 +362,7 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 			open = +cur.seq > ack,
 			q = { seq: Math.max(+cur.seq || 0, ack) + 1 };
 		if (patch.stop || (open && cur.stop)) q.stop = true;
+		if (patch.export || (open && cur.export)) q.export = patch.export || cur.export;
 		q.at = Date.now();
 		writeJson(ctlPath(w.id), q);
 		return q;
@@ -379,6 +380,16 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 		if (!w.ctl.force || identify(p) !== true) return [403, { reason: "can't verify its process on this host (pid, start time, cwd)" }];
 		process.kill(p.pid, "SIGKILL");
 		return [200, { signal: "SIGKILL" }];
+	}
+
+	// an export of a running run's state now (sim/export.js: <id>.state/<label>/), taken at its next chunk
+	function exportRun(id, label) {
+		const w = worlds().find((x) => x.id === id);
+		if (!w) return [404, { reason: `no run ${id}` }];
+		if (!ON.has(w.state)) return [409, { reason: `not running (${w.state})` }];
+		if (!w.ctl.stop) return [409, { reason: "this run takes no requests (no control file)" }];
+		const name = String(label || "").replace(/[^\w.-]+/g, "_").slice(0, 60) || "at-" + new Date().toISOString().slice(0, 19).replace(/[-:]/g, "");
+		return [202, { seq: request(w, { export: name }).seq, label: name }];
 	}
 
 	// what a rerun starts from unless told otherwise: its setup file's warm-up, world age and ping
@@ -988,6 +999,7 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 			if ((m = /^\/api\/live\/([\w.-]+)$/.exec(p)) && req.method === "DELETE") return act(() => remove(m[1], url.searchParams.get("stop") === "1"));
 			if (p === "/api/clear-finished" && req.method === "POST") return act(() => [200, worlds().filter((w) => !ON.has(w.state)).map((w) => (moveAway(w.id), { removed: w.id }))]);
 			if ((m = /^\/api\/runs\/([\w.-]+)\/stop$/.exec(p)) && req.method === "POST") return act((b) => stopRun(m[1], b.force === true));
+			if ((m = /^\/api\/runs\/([\w.-]+)\/export$/.exec(p)) && req.method === "POST") return act((b) => exportRun(m[1], b.label));
 			if (p === "/api/launch" && req.method === "POST") return act(launch);
 			if (p === "/api/viewer" && req.method === "POST") return act(viewerUse);
 			if ((m = /^\/api\/launch\/(l-[\w-]+)$/.exec(p)) && req.method === "DELETE") return act(() => cancel(m[1]));

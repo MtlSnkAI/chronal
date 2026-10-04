@@ -421,8 +421,8 @@ test("storage and steering: accounts.<k>.storage and local_storage (null: unset)
 			"accounts.main.storage: { <key>: <a value, as get(key) returns it> }", "accounts.main.local_storage: { <localStorage key>: <text> }",
 			"accounts.two.local_storage.cstore_k: storage.k sets it too (set/get keep their values under \"cstore_<key>\")",
 			`steer[0].at: "x", a game time since the run's start (90s, 30m, 2h, or minutes)`, 'steer[0].character: "Z" is not a character of the setup', "steer[0].code: Unexpected token '('",
-			"steer[1]: nothing to do (storage, local_storage or code)", "steer[2]: { name, at | when (for, repeat, window) | after, character, storage, local_storage, code, note }",
-			"steer[3].what: unknown key (known: name, at, when, for, repeat, window, after, character, storage, local_storage, code, note)",
+			"steer[1]: nothing to do (storage, local_storage, code or export)", "steer[2]: { name, at | when (for, repeat, window) | after, character, storage, local_storage, code, export, note }",
+			"steer[3].what: unknown key (known: name, at, when, for, repeat, window, after, character, storage, local_storage, code, export, note)",
 		]);
 		return true;
 	});

@@ -321,6 +321,8 @@ class Live {
 		// run control: the dashboard's requests (ack: the last seq applied), how it ended, how to run it again
 		this.ctl = path.join(this.dir, this.id + ".ctl");
 		this.ack = 0;
+		this.exportWanted = null; // an export the dashboard asked for (its label): the run's loop writes it (exported())
+		this.exports = []; // the state exports written: { label, at, t, dir }
 		this.end = null;
 		this.closed = false;
 		this.proc = procOf();
@@ -1214,7 +1216,14 @@ class Live {
 			if (typeof this.sim.halt !== "function") return;
 			this.sim.halt("dashboard");
 		}
+		// an export of the run's state now: the run's loop takes it at its next chunk (page reads are async)
+		if (c.export && !this.exportWanted) this.exportWanted = { label: String(c.export), seq: c.seq };
 		this.ack = c.seq;
+	}
+	// a state export written (sim/export.js): listed in the snapshot (state.exports)
+	exported(label, at, dir) {
+		this.exports.push({ label, at, t: this.base ? Math.round((this.sim.clock.now - this.base.at) / 1000) : null, dir: path.relative(this.dir, dir) });
+		this.exportWanted = null;
 	}
 	probe() {
 		const S = this.sim.server,
@@ -1774,7 +1783,7 @@ class Live {
 		const coarse = this.coarse,
 			gr = this.grid;
 		const out = {
-			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 2,
+			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 3,
 			precision: { dmg_done: "net", dmg_taken: "net", heal: "net", overkill: "exact", overheal: "exact", items: "exact", gold: "exact", gold_other: "exact", mana_by_skill: "exact",
 				sample_ms: coarse ? null : SAMPLE_MS, modes: coarse ? "coarse" : "exact", grid: coarse ? null : "exact", attrib: coarse ? null : "exact" },
 			history_cols: HISTORY_COLS, roster,
@@ -1798,6 +1807,7 @@ class Live {
 			grid: gr ? { step_ms: this.gridMs, cols: GRID_COLS, file: path.basename(gr.path), lines: gr.lines, gen: gr.gen, tail: gr.tail } : null,
 			items_log: this.items ? { file: path.basename(this.items.path), lines: this.items.lines, bytes: this.items.bytes, capped: this.items.capped } : null,
 			players, notes: this.notes, steer: this.steers, banks: this.banks(list),
+			state: { exports: this.exports, pending: this.exportWanted ? this.exportWanted.label : null },
 		};
 		return out;
 	}

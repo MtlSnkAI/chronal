@@ -119,9 +119,20 @@ function RunControls({ w, ask, toggleAsk, btns }) {
 		const at = stopAt.get(w.id) || askedAt(c.pending && c.pending.stop ? c.pending.at : null);
 		if (at) { const s = Math.max(0, Math.round((Date.now() - at) / 1000)); out.push(html`<${Status} dot="stopped" text=${s < 30 ? "Stopping... (asked " + s + " s ago)" : "Not stopped after " + s + " s."}>${s >= 30 && c.force ? html`<button type="button" class="cb stop" ref=${(e) => (btns.current.force = e)} aria-haspopup="dialog" aria-expanded=${on("force")} onClick=${() => toggleAsk("force", w.id)}>Force stop</button>` : null}</${Status}>`); }
 		else out.push(html`<button type="button" class="cb stop" ref=${(e) => (btns.current.stop = e)} aria-haspopup="dialog" aria-expanded=${on("stop")} onClick=${() => toggleAsk("stop", w.id)}>${STOP()}Stop run</button>`);
+		const st = w.state || {}, pending = st.pending || exportAt.get(w.id);
+		out.push(html`<button type="button" class="cb" disabled=${!!pending} data-tip=${"every character's state now (gear, items, bank, server state) to " + w.id + ".state/: chronal continue, a setup's state.from" + (st.exports && st.exports.length ? " (" + st.exports.length + " so far)" : "")} onClick=${() => exportRun(w.id)}>${pending ? "Exporting..." : "Export state"}</button>`);
 	}
 	if (err) out.push(html`<${Status} dot="bad" text=${err} />`);
 	return out;
+}
+const exportAt = new Map(); // id -> the label asked for, until the snapshot lists it
+async function exportRun(id) {
+	notes.delete(id);
+	try {
+		const r = await api("api/runs/" + encodeURIComponent(id) + "/export", "POST", {}), o = await r.json().catch(() => ({}));
+		if (r.ok) { exportAt.set(id, o.label); setTimeout(() => (exportAt.delete(id), redraw()), 10000); } else notes.set(id, "Not exported: " + (o.reason || "HTTP " + r.status));
+	} catch (x) { notes.set(id, "Not exported: " + x.message); }
+	redraw();
 }
 async function stopRun(id, force) {
 	notes.delete(id);

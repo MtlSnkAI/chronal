@@ -20,7 +20,7 @@
 ```
 chronal run <setup.json | <id>.setup.json> [--duration 2h] [--warmup 2m] [--world-age 2h] [--ping 18] [--seed N]
             [--age-days N] [--tag T] [--live DIR | --no-live] [--result out.json] [--no-build] [--current-code]
-            [--record] [--check] [--code-set NAME [--missing NAME=SLOT|idle|exclude,...]] [--trust]
+            [--record] [--check] [--code-set NAME [--missing NAME=SLOT|idle|exclude,...]] [--trust] [--export DIR | --no-export]
 chronal run --code my.js [--dir DIR] --class ranger [--name N] [--level 40] [--at map:x:y] [--farm type[,type]] [--duration 30m] [...]
 ```
 
@@ -39,15 +39,41 @@ chronal run --code my.js [--dir DIR] --class ranger [--name N] [--level 40] [--a
 | `--start ISO` | the world's clock as it boots (`world.start`, e.g. `2026-10-31T18:00Z`) |
 | `--code-set NAME` | every character's CODE from that set ([CODE sets](library.md#code-sets)); `--missing` for characters it has no entry for. With a run's `<id>.setup.json`: its characters and states as they were, their CODE from the set (e.g. a new version of the one it ran); not with `--current-code`, `--missing ...=exclude` not for it |
 | `--trust` | trust others' CODE not trusted yet without asking ([trust](library.md#trust)) |
+| `--export DIR` | where the run's state exports go (default `<id>.state/` beside the snapshot; [state exports](export.md)); `--no-export`: none |
 | `--code FILE --class C` | a one-character setup without a file: `--dir` its slots, `--name`, `--level`, `--at`, `--farm` (sets `params.farm`) |
 
 - `<id>.setup.json` (a run's side file, beside its snapshot) runs that run again: its stored CODE and start states.
 - SIGINT / SIGTERM or the dashboard's Stop end the run at the next game minute with its final numbers; a second signal
   exits at once.
 - A CODE that asks for a slot its setup doesn't give fails the run (exit 1).
-- `--result`: `{ seed, warm, minutes, vmin, speed, real_s, halted, setup, live, characters: { <name>: ... }, fighter,
-  merchant }`; per character its level and start level, xp gained and per hour, gold and gold gained, kills, deaths,
+- At its end (done, stopped or halted) the run writes its state ([state exports](export.md)) to `<id>.state/end/`; the
+  dashboard's Export state and a steering entry's `export` write one while it runs.
+- `--result`: `{ seed, warm, minutes, vmin, speed, real_s, halted, setup, live, state, characters: { <name>: ... }, fighter,
+  merchant }` (`state`: the end state's directory); per character its level and start level, xp gained and per hour, gold and gold gained, kills, deaths,
   map, mode, Lone Wolf, gear and stats at the end; `fighter` is the first non-merchant's.
+
+## chronal continue
+
+```
+chronal continue <run id | <id>.json | <id>.setup.json> [--label end] [--live DIR] [--duration D] [--seed N] [--start ISO]
+                 [--seasons a,b | none] [--at end | spawn] [--reseed ACCOUNT,...] [--save FILE] [--run [-- run options]]
+```
+
+A setup that goes on from a run's state export ([state exports](export.md)): long progressions as stages. Writes it to
+`--save` (default `<id>.state/<label>/continue.setup.json`) and prints its path; `--run` runs it (`chronal run`, with the
+options after `--`).
+
+| option | |
+|---|---|
+| `--label` | which export (default `end`: the one the run wrote at its end) |
+| `--duration`, `--seed` | the new run's (else the run's) |
+| `--start ISO` | the world's clock (default: the export's time, so New Player phases, events and seasons' windows go on) |
+| `--seasons a,b \| none` | the new run's seasons (a season window ends between stages) |
+| `--at spawn` | every fighter at its map's first spawn instead of where it was (it would be back in a fight before its CODE runs again) |
+| `--reseed A,B` | those accounts as the run's setup gave them (e.g. a market account that starts each stage fresh) |
+
+Not carried: the run's world age, warm-up, forced events and steering (the first stage's); the CODE is what its source
+gives now (dir, file, entry, appends, extras, build), not the run's stored copy.
 
 ## chronal example
 
