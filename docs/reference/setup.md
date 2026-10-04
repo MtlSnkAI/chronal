@@ -109,7 +109,9 @@ In run order (it seeds the client threads).
 | `online` | `true` | `false`: on its account but not in game at the start; CODE may start it (Switching characters, below) |
 
 At most 3 characters and 1 merchant per account in game at the start, and at most 3 besides merchants in all (the
-game's limits per account and per IP: a run's characters all play from one).
+game's limits per account and per IP: a run's characters all play from one). Their pages log in in setup order, at
+most 5 not in game at once: the server disconnects an IP's other pages when more than 5 of its sockets have no
+character yet, so more than 5 online characters start a few game seconds apart, as a browser's pages load on live.
 
 **state** (all optional):
 - `from`: an export (`chronal-export/1`: the snippet's, or a pull's `<Name>.json`), with `level`, `xp`, `gold`,

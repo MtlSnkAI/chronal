@@ -354,9 +354,9 @@ class Sim {
 		db.collection(kind(mark)).store.set(mark, { _id: mark, type: "character", phrase: name.toLowerCase(), owner: cid, created: now });
 		return { user_id, auth, character: cid, name };
 	}
-	/** Log a character in and run `code` unmodified once it enters the game. */
-	addCharacter({ name, type, over, code, fps = 60, api, account, user, files }) {
-		const fx = this.createCharacter({ name, type, over, account, user });
+	/** Log a character in (a new one, or fx: one createCharacter made) and run `code` unmodified once it enters the game. */
+	addCharacter({ name, type, over, code, fps = 60, api, account, user, files, fx: made }) {
+		const fx = made || this.createCharacter({ name, type, over, account, user });
 		const state = startClient(this.env, clientInfo(this.server), { ...fx, code, fps, api, files, onFatal: (msg) => this.fail(msg) });
 		const c = { name, state, game: state.game, query: async (expr) => state.query(expr), get runner() { return state.runner; }, get errors() { return state.errors; } };
 		this.clients.push(c);
@@ -436,8 +436,8 @@ class ThreadedSim extends Sim {
 		this.hub.onRequest = (peer, data) => this.requests.push({ w: peer.w, data });
 		this.onLeave = null; // (client, reason): a character is about to leave (its thread still answers queries)
 	}
-	addCharacter({ name, type, over, code, fps = 60, account, user, files, owned, codeOf }) {
-		const fx = this.createCharacter({ name, type, over, account, user });
+	addCharacter({ name, type, over, code, fps = 60, account, user, files, owned, codeOf, fx: made }) {
+		const fx = made || this.createCharacter({ name, type, over, account, user });
 		return this.login(fx, { name, type, account, code, fps, files, owned, codeOf });
 	}
 	/** Create a character (as addCharacter) that stays out of the game until CODE starts it (start_character).

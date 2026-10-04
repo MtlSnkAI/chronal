@@ -471,3 +471,41 @@ setInterval(function () {
 		await sim.close();
 	}
 });
+
+test("start.js: 6 online at the start (3 accounts, a fighter and a merchant each): all in game, no page disconnected (at most 5 log in at once)", { timeout: 180000 }, async (t) => {
+	const { config } = require("../lib/config");
+	if (!fs.existsSync(path.join(config().al_root, "design"))) return t.skip(`no game at ${config().al_root}`);
+	const { startSetup } = require("../sim/start");
+	const d = layout();
+	const chars = ["a", "b", "c"].flatMap((acc, i) => [
+		{ name: "Fi" + acc.toUpperCase(), class: ["rogue", "ranger", "priest"][i], account: acc, code: { file: "farm.js" } },
+		{ name: "Me" + acc.toUpperCase(), class: "merchant", account: acc, code: { file: "farm.js" } },
+	]);
+	const { resolved, bundles } = S.resolveSetup(S.loadSetup(setupFile(d, { characters: chars })));
+	const { sim, order } = await startSetup(resolved, bundles, { live: false });
+	try {
+		assert.deepEqual(order.map((c) => c.name), chars.map((c) => c.name));
+		for (const c of order) assert.equal(await c.query("character.name"), c.name);
+		assert.equal(sim.clients.length, 6, "no page loaded again (a disconnect)");
+	} finally {
+		await sim.close();
+	}
+});
+
+test("start.js follows a page that the server disconnects at the start (its CODE's disconnect()): the reloaded page is the character's", { timeout: 120000 }, async (t) => {
+	const { config } = require("../lib/config");
+	if (!fs.existsSync(path.join(config().al_root, "design"))) return t.skip(`no game at ${config().al_root}`);
+	const { startSetup } = require("../sim/start");
+	const d = layout();
+	write(d, "dc.js", 'if (Date.now() < Date.parse("2026-01-01T00:00:05Z")) disconnect();');
+	const { resolved, bundles } = S.resolveSetup(S.loadSetup(setupFile(d, { world: { start: "2026-01-01T00:00:00Z" }, characters: [{ name: "Dc", class: "ranger", code: { file: "dc.js" } }] })));
+	const { sim, order, clients } = await startSetup(resolved, bundles, { live: false });
+	try {
+		assert.ok(sim.clients.length > 1, "it disconnected and loaded again");
+		assert.equal(order[0], sim.clients[sim.clients.length - 1]);
+		assert.equal(clients.Dc, order[0]);
+		assert.equal(await order[0].query("character.name"), "Dc");
+	} finally {
+		await sim.close();
+	}
+});

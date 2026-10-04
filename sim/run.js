@@ -257,17 +257,19 @@ const main = (argv) => (async () => {
 		await sim.close();
 		process.exit(0);
 	}
-	const levels = await order[0].query("G.levels");
-	const q0 = {};
-	for (const c of order) q0[c.name] = await c.query(STAT);
-	// characters that come and go (start_character, stop_character, a page's disconnect()): the last reading of each
-	// one that left, and the kills and deaths of its sessions so far (a new session's game log starts empty)
-	const left = {},
-		past = {};
+	// the page in game now of a character (a page that reloaded after a disconnect() is a new client), or null
 	const now = (name) => {
 		for (let i = sim.clients.length - 1; i >= 0; i--) if (sim.clients[i].name === name) return sim.clients[i].online === false ? null : sim.clients[i];
 		return null;
 	};
+	const ins = order.map((c) => now(c.name)).filter(Boolean),
+		levels = ins.length ? await ins[0].query("G.levels") : sim.server.G.levels;
+	const q0 = {};
+	for (const c of ins) q0[c.name] = await c.query(STAT);
+	// characters that come and go (start_character, stop_character, a page's disconnect()): the last reading of each
+	// one that left, and the kills and deaths of its sessions so far (a new session's game log starts empty)
+	const left = {},
+		past = {};
 	if ("onLeave" in sim)
 		sim.onLeave = (cl, reason) => {
 			const a = cl.querySync(STAT),
