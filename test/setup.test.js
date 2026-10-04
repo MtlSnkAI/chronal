@@ -159,8 +159,10 @@ test("states: characterOver gives the state's character (export, export + slots,
 	const { resolved } = S.resolveSetup(s, { G });
 	const [e1, e2, f1, f2] = resolved.characters;
 	const x = EXP.character;
-	// over(c, at, extra): an export's numbers at a place, merged into a new character
-	const over = (c, at, extra = {}) => ({ level: c.level, xp: c.xp, ...extra, info: { gold: c.gold, items: c.items, slots: c.slots, ...at, ...(extra.info || {}) } });
+	// over(c, at, extra): an export's numbers at a place, merged into a new character (its gear: the export's, or the
+	// given slots, every starter slot they don't list emptied)
+	const empty = Object.fromEntries(Object.keys(S.starter(G, "ranger")).map((k) => [k, null]));
+	const over = (c, at, extra = {}) => ({ level: c.level, xp: c.xp, ...extra, info: { gold: c.gold, items: c.items, ...at, ...(extra.info || {}), slots: { ...empty, ...((extra.info && extra.info.slots) || c.slots) } } });
 	const at = (m, X, Y) => ({ map: m, in: m, x: X, y: Y });
 	assert.equal(character("ranger", S.characterOver(e1)), character("ranger", over(x, at("spookytown", 677, 129))));
 	assert.equal(character("ranger", S.characterOver(e2)), character("ranger", over(x, at("main", -1, 2), { level: 60, xp: 0, info: { slots: { mainhand: { name: "bow", level: 9 }, ring1: { name: "ringsj", level: 2 } } } })));
@@ -169,7 +171,7 @@ test("states: characterOver gives the state's character (export, export + slots,
 	// the resolved state is the character's (over the starter gear slot by slot, as the sim makes it: a given item takes
 	// none of the starter's fields, not its gift; a starter item not replaced stays a gift)
 	assert.deepEqual(f2.state, { level: 60, xp: 0, gold: 0, items: [{ name: "hpot0", q: 200, gift: 1 }, { name: "mpot0", q: 200, gift: 1 }], slots: { mainhand: { name: "wand", level: 7 }, helmet: null, shoes: null } });
-	assert.deepEqual(e1.state.slots, { mainhand: { name: "firebow", level: 7 }, helmet: null, shoes: { name: "shoes", level: 0, gift: 1 }, chest: { name: "coat", level: 8, stat_type: "dex" } });
+	assert.deepEqual(e1.state.slots, { mainhand: { name: "firebow", level: 7 }, helmet: null, shoes: null, chest: { name: "coat", level: 8, stat_type: "dex" } }); // (the export has no shoes: no starter's)
 	assert.deepEqual(f1.at, { map: "main", x: 5, y: 6 }); // main's spawn
 	assert.deepEqual(resolved.source.characters.E1, { code_dir: null, recursive: false, code_git: resolved.source.characters.E1.code_git, entry: null, file: path.join(d, "farm.js"), append: [], extra: [], prelude: null, build: null, state_from: path.join(d, "Ran.json"), exported_at: EXP.exported_at });
 });

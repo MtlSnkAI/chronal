@@ -117,7 +117,8 @@ game's limits per account and per IP: a run's characters all play from one).
 - Without `from`: a new character: L1, 0 xp, 0 gold, 200 hpot0 and 200 mpot0, the class's starter gear (`slots`
   replace the starter weapon, helmet and shoes).
 - Gear goes over the class's starter gear slot by slot, as the game makes a character: a given item replaces the
-  starter's whole.
+  starter's whole. With `from`, the gear is the export's (or the given `slots`) and nothing else: a starter slot it
+  doesn't list starts empty.
 - `skin`, `cx` (cosmetics `{ <place>: <cosmetic> }`): its looks, given or the export's; else the class's default look.
 - Never taken from an export: conditions, the merchant stand, the upgrade queue.
 

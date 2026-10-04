@@ -311,8 +311,9 @@ test("from scratch, gear edits (over the gear it starts with) and sweeps; a CODE
 	const s = variants[3].setup,
 		[ran, wiz] = s.characters;
 	assert.equal(s.name, "now-0927-1000 [Ran mainhand=firebow+7, CODE pull:acc]");
-	// Ran: its export's gear, the chest and the mainhand changed; Wiz: the starter gear, the helmet changed
-	assert.deepEqual(ran.state, { from: path.join(p.dir, "Ran.json"), slots: { mainhand: { name: "firebow", level: 7 }, helmet: { name: "helmet", level: 0, gift: 1 }, shoes: { name: "shoes", level: 0, gift: 1 }, offhand: { name: "quiver", level: 7 }, chest: { name: "coat", level: 9, stat_type: "dex" } } });
+	// Ran: its export's gear (no starter helmet or shoes: the export has none), the chest and the mainhand changed; Wiz:
+	// the starter gear, the helmet changed
+	assert.deepEqual(ran.state, { from: path.join(p.dir, "Ran.json"), slots: { mainhand: { name: "firebow", level: 7 }, helmet: null, shoes: null, offhand: { name: "quiver", level: 7 }, chest: { name: "coat", level: 9, stat_type: "dex" } } });
 	assert.deepEqual(wiz, { name: "Wiz", class: "mage", account: "acc", state: { level: 60, slots: { mainhand: { name: "staff", level: 0, gift: 1 }, helmet: { name: "mageshood", level: 3 }, shoes: { name: "shoes", level: 0, gift: 1 } } } });
 	assert.deepEqual(variants[0].setup.defaults.code, { dir: path.join(d, "lib"), append: [] });
 	assert.deepEqual(s.defaults.code, { dir: path.join(p.dir, "code"), append: [] });
