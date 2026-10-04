@@ -25,3 +25,8 @@ test("casts: a skill's reuse call (invis on reappearing, a pickpocket/fishing/mi
 	assert.deepEqual(live.mx.A.casts, { invis: 1, fishing: 1, quickstab: 1 });
 	assert.equal(calls.length, 5); // the server's own calls all happen
 });
+
+test("census: a trade slot's buy order (b: true) is not an item held; a listed item is", () => {
+	const p = { items: [{ name: "hpot0", q: 5 }, null], slots: { trade1: { name: "coat", q: 2, price: 9, b: true }, trade2: { name: "bow", level: 3, price: 5 }, mainhand: { name: "blade", level: 0 } } };
+	assert.deepEqual(Live.prototype.census.call({}, p), { hpot0: 5, bow: 1, blade: 1 });
+});

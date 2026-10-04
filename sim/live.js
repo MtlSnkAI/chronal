@@ -1519,7 +1519,8 @@ class Live {
 			if (items[i] && items[i].name === "placeholder" && p.p && (up || co)) add(up ? p.p.u_item : p.p.c_item);
 			else add(items[i]);
 		}
-		for (const k in p.slots || {}) if (k !== "elixir") add(p.slots[k]);
+		// (a trade slot's buy order, b: true, is wanted, not held)
+		for (const k in p.slots || {}) if (k !== "elixir" && !(p.slots[k] && p.slots[k].b)) add(p.slots[k]);
 		if (p.type === "merchant") {
 			const bank = this.bankOf(p);
 			for (const k in bank || {}) if (/^items\d+$/.test(k) && Array.isArray(bank[k])) for (const it of bank[k]) add(it);
