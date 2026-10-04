@@ -1,10 +1,10 @@
-# Live snapshot schema v2.4
+# Live snapshot schema v2.5
 
 What a run writes into a live dir while it runs, and what the dashboard (`dashboard/server.js`) and
 `tools/live_check.js` read. `sim/live.js` writes it for every `chronal run` run (the live dir: `--live DIR`, else
 config `live_dir`; `--no-live`: none).
 
-A snapshot says `schema: 2, schema_minor: 4`. The input of a run, the run setup (`chronal-setup/1`), is described in
+A snapshot says `schema: 2, schema_minor: 5`. The input of a run, the run setup (`chronal-setup/1`), is described in
 docs/reference/setup.md; `chronal example` prints an annotated one.
 
 ## 1. Files in a live dir
@@ -59,7 +59,7 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `versions` | `{ sim, code, code_hash }`: git version of the simulator (`<commit>[+<diff hash>]`: the last commit of the files that change what a run does, and a hash of their uncommitted diff; `sim/`, `lib/` and `codes/` but `sim/g_data.js`, `lib/compose.js`, `lib/pull.js`, `lib/example.js` and `lib/install.js`), git version of the first character's CODE directory ("?" outside a repo; a run without a setup: null), hash over every character's CODE (section 9) |
 | `setup` | `{ format, file, name, from, hash }` (section 9); absent for runs without a setup |
 | `setup_key` | hash of what defines the run (section 9: the setup without its run knobs, name, strategy and notes, plus the simulator version; a run without a setup: null): runs of one setup with other seeds or durations share it |
-| `schema`, `schema_minor` | `2`, `4` |
+| `schema`, `schema_minor` | `2`, `5` |
 | `precision` | how each family was measured (below) |
 | `history_cols` | column names of the history rows (section 7) |
 | `roster` | the run's characters in run order (section 5) |
@@ -183,6 +183,7 @@ merchant: { name, trips: [ { t_out, t_back, met, served } ], per_fighter: { <fig
 | `hp`, `mp`, `s`, `mode` | now: hp and mp, the condition keys on it (`character.s`, sorted), its CODE's `chronal.mode` (null: none, or not in game) |
 | `kills_by`, `last_kill` | its last hits by monster type since the base (`kills` = their sum); the last one's t (game s since the base; null: none) |
 | `role` | the setup's explicit role, else the CODE's `chronal.role`, else by class |
+| `log`, `log_n` | its game log's last 30 lines `[[v, kind, text]]` (`v` the world clock's ms; `kind` `"pageerror"` for a CODE's uncaught error and the game's code_error lines, `"console"` for its page's console errors and warnings, else `""`; `text` without HTML, at most 300 characters) and counts since the start `{ lines, errors, console }` (the single-thread Sim: no console, it goes to the run's stderr); null before its first line |
 | `code_status`, `modes_from` | the last status the CODE reported (`chronal.status`, a JSON tree; over 64 KB `{ truncated: true, bytes }`), null without one; `"chronal"` or null |
 
 **Measured since the base**

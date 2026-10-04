@@ -1,4 +1,4 @@
-// Reconciles a live snapshot (schema v2.4) with itself, its grid file and the server's own counters, and optionally
+// Reconciles a live snapshot (schema v2.5) with itself, its grid file and the server's own counters, and optionally
 // with a chronal run RESULT (--result). Exit 1 when a check fails.
 //   node tools/live_check.js live/<id>.json [RESULT.json] [--quiet]
 // Per character:

@@ -187,8 +187,9 @@ const CODES = {
 		};`,
 	// an M of its own, no chronal: not read (as AnyC)
 	AnyB: `var M = { mode: function () { return "kite"; }, snapshot: function () { return { mode: "kite", party: { role: "healer" } }; } };`,
-	// neither
-	AnyC: `var nothing = 1;`,
+	// neither; an error every 5 s, a console error and a code_error line (the game log in the snapshot)
+	AnyC: `var nothing = 1; setInterval(function () { throw new Error("boom"); }, 5000);
+		setTimeout(function () { console.error("con err"); game_log("bad line", "#E13758"); }, 2000);`,
 };
 async function runReport(threads) {
 	const dir = tmp(),
@@ -214,14 +215,22 @@ function checkReport({ s, calls }) {
 	assert.equal(calls.fired, 1);
 	assert.ok(calls.role >= 2 && calls.role <= 25000 / STATUS_MS + 1, `role read every ${STATUS_MS} ms: ${calls.role}`);
 	assert.ok(calls.mode >= 25, `mode read: ${calls.mode}`);
+	// the game log: its last lines, errors counted (uncaught ones, code_error), console errors (client threads only)
+	const L = by.AnyC.log_n,
+		text = (by.AnyC.log || []).map((l) => l[2]).join("\n");
+	assert.ok(L && L.errors >= 4, "errors: " + JSON.stringify(L));
+	assert.match(text, /boom/);
+	assert.match(text, /bad line/);
+	assert.ok(by.AnyC.log.every((l) => Array.isArray(l) && Number.isFinite(l[0]) && typeof l[2] === "string"));
+	return L;
 }
 
-test("single-thread Sim: probe() reads chronal (else nothing) through guarded(); an impure getter once", { skip: !fs.existsSync(ROOT) && "no " + ROOT }, async () => {
-	checkReport(await runReport(false));
+test("single-thread Sim: probe() reads chronal (else nothing) through guarded(); an impure getter once; the game log", { skip: !fs.existsSync(ROOT) && "no " + ROOT }, async () => {
+	assert.equal(checkReport(await runReport(false)).console, 0); // (its console is the run's stderr)
 });
 
-test("client threads: the same through client_worker.js and w.modes", { skip: !fs.existsSync(ROOT) && "no " + ROOT }, async () => {
-	checkReport(await runReport(true));
+test("client threads: the same through client_worker.js and w.modes; the game log and console errors", { skip: !fs.existsSync(ROOT) && "no " + ROOT }, async () => {
+	assert.ok(checkReport(await runReport(true)).console >= 1);
 });
 
 // the base: the first probe with every character in game, a game time: identical runs measure the same (it was the first

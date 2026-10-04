@@ -39,7 +39,7 @@ Accounts, Settings), then the runs list:
   under the list compares them (2 or more runs; a group counts its runs). On the Compare page, the picks are its series.
 
 **Runs** (the Runs table): every run the list's filters pass, with its rank by the headline metric, up to 6 more metric
-columns (**Columns**: 32 metrics in 7 groups, saved for every page on that live folder), deaths, game time, seed and
+columns (**Columns**: 33 metrics in 7 groups, saved for every page on that live folder), deaths, game time, seed and
 start. **Remove finished** moves every finished and stopped run to `live/removed/`.
 
 **A run's page:** its seed, state, short label and rank, then its actions: **Replay** (a recorded run), **Rerun**,
@@ -47,7 +47,8 @@ start. **Remove finished** moves every finished and stopped run to `live/removed
 **Remove** (to `live/removed/` with its state exports; a running run is stopped first). Its tabs:
 - **Characters**: a sheet per character as the game shows it (HP, MP and XP bars, gear with the game's tooltips,
   conditions, stats; More,
-  Inventory, Game log folds); with the replay shown they follow the replay's moment. Below, Items (from the run's
+  Inventory, Game log folds: its last 30 lines, CODE errors in red; a red mark by its name counts them); with the
+  replay shown they follow the replay's moment. Below, Items (from the run's
   items' events): Upgraded, per item and step (+X -> +Y: succeeded, failed, lost) and each try; Traded, per item and
   each sale at a stand or into a buy order (seller, buyer, price, tax); Looted, each loot
   (when, who, what).

@@ -6,7 +6,7 @@ const fs = require("node:fs"),
 const { VirtualClock } = require("./vclock");
 const { RemoteHub, Gate, spinWhile } = require("./fake_io");
 const { startClient, makeStorage, putStorage } = require("./client_host");
-const { readMode, readStatus, readRole, guarded, STATUS_MS } = require("./report");
+const { readMode, readStatus, readRole, guarded, logTap, LOG_TEXT, LOG_KEEP, STATUS_MS } = require("./report");
 
 process.on("unhandledRejection", () => {}); // browsers only log these
 // A worker's stdout/stderr are flushed by its event loop, which doesn't turn during a run: write synchronously instead
@@ -32,6 +32,25 @@ const gate = new Gate({
 	},
 });
 const quiet = { ...console, log() {}, info() {}, debug() {} };
+// the game log's new lines and the page's console errors and warnings, posted with the modes (live.js pollModes):
+// { n, err, con, lines: [[v, kind, text]] (the last LOG_KEEP) }
+const logOut = { n: 0, err: 0, con: 0, lines: [] };
+const logLine = (v, kind, text) => {
+	logOut.n++;
+	if (kind === "pageerror") logOut.err++;
+	if (kind === "console") logOut.con++;
+	logOut.lines.push([v, kind, text]);
+	if (logOut.lines.length > LOG_KEEP) logOut.lines.shift();
+};
+for (const k of ["error", "warn"]) {
+	const orig = console[k];
+	quiet[k] = (...a) => {
+		try {
+			logLine(clock.now, "console", a.map((x) => (x && x.message ? x.message : String(x))).join(" ").slice(0, LOG_TEXT));
+		} catch (e) {}
+		return orig.apply(console, a);
+	};
+}
 
 let replies = 0;
 const reply = (msg) => {
@@ -89,7 +108,9 @@ const read = (k, fn) => {
 	if (r.impure && r.impure !== "threw") impure[k] = r.impure;
 	return r.value;
 };
+const tap = logTap();
 function sampleMode(now) {
+	if (state && state.game) for (const [kind, text] of tap(state.game)) logLine(now, kind, text);
 	const runner = state && state.runner,
 		m = runner ? read("mode", () => readMode(runner)) : null,
 		k = m ? m.v : null;
@@ -106,7 +127,11 @@ function sampleMode(now) {
 		(posted = now), postModes(got);
 	} else if (now - posted >= 1000) (posted = now), postModes();
 }
-const postModes = (got) => w.modes.postMessage({ at: modeAt, cur: modeNow, totals: modes, from, impure: Object.keys(impure).length ? { ...impure } : null, ...got });
+const postModes = (got) => {
+	const log = logOut.n ? { ...logOut, lines: logOut.lines.slice() } : null;
+	if (log) (logOut.n = logOut.err = logOut.con = 0), (logOut.lines.length = 0);
+	w.modes.postMessage({ at: modeAt, cur: modeNow, totals: modes, from, impure: Object.keys(impure).length ? { ...impure } : null, ...got, ...(log ? { log } : {}) });
+};
 
 let state,
 	fatal = null; // the CODE asked for a slot it doesn't have: in every run reply from then on (sim.fail())

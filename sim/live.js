@@ -46,7 +46,7 @@ const fs = require("node:fs"),
 	crypto = require("node:crypto"),
 	{ receiveMessageOnPort } = require("node:worker_threads"),
 	{ ServerSocket } = require("./fake_io"),
-	{ readMode, readStatus, readRole, guarded, STATUS_MS, WHY } = require("./report"),
+	{ readMode, readStatus, readRole, guarded, logTap, LOG_KEEP, STATUS_MS, WHY } = require("./report"),
 	SETUP = require("../lib/setup"),
 	SCH = require("../lib/schedule"),
 	{ gitVersion, simVersion } = SETUP;
@@ -321,6 +321,8 @@ class Live {
 		// run control: the dashboard's requests (ack: the last seq applied), how it ended, how to run it again
 		this.ctl = path.join(this.dir, this.id + ".ctl");
 		this.ack = 0;
+		this.logs = {}; // name -> { lines, errors, console, last }: its game log (logged())
+		this.taps = new WeakMap(); // single-thread Sim: a client -> its game log's tap (report.js logTap)
 		this.exportWanted = null; // an export the dashboard asked for (its label): the run's loop writes it (exported())
 		this.exports = []; // the state exports written: { label, at, t, dir }
 		this.end = null;
@@ -1328,6 +1330,10 @@ class Live {
 					if (g.impure && g.impure !== "threw") (r.impure ||= {})[k] = g.impure;
 					return g.value;
 				};
+				// its game log's new lines (its console goes to the run's stderr here: not counted)
+				const tap = this.taps.get(c) || (this.taps.set(c, logTap()), this.taps.get(c)),
+					got = st && st.game ? tap(st.game) : [];
+				if (got.length) this.logged(c.name, { n: got.length, err: got.filter(([kd]) => kd === "pageerror").length, con: 0, lines: got.slice(-LOG_KEEP).map(([kd, t]) => [v, kd, t]) });
 				const m = runner ? read("mode", () => readMode(runner)) : null,
 					k = m ? m.v : null;
 				if (m && m.from) r.from = m.from;
@@ -1587,7 +1593,16 @@ class Live {
 					(r.from = x.from || null), (r.impure = x.impure || null);
 					if ("status" in x) r.status = x.status;
 					if ("role" in x) r.role = x.role;
+					if (x.log) this.logged(w.name, x.log);
 				}
+	}
+	// a character's game log lines and console errors (client threads: pollModes; the single-thread Sim: probe()):
+	// counts since the start, the last LOG_KEEP lines
+	logged(name, x) {
+		const L = (this.logs[name] ||= { lines: 0, errors: 0, console: 0, last: [] });
+		(L.lines += x.n), (L.errors += x.err || 0), (L.console += x.con || 0);
+		L.last.push(...x.lines);
+		if (L.last.length > LOG_KEEP) L.last.splice(0, L.last.length - LOG_KEEP);
 	}
 	// notes.chronal: the getters no longer called, "<name>: <field> disabled (<why>)"; each warned about once
 	alSimNotes() {
@@ -1734,6 +1749,7 @@ class Live {
 				maps: Object.fromEntries(Object.entries(s.maps).map(([k, ms]) => [k, +Math.min(1, ms / Math.max(1, measured)).toFixed(3)])),
 				gear, gear_stat, stats: statsOf(p), history: s.history || null, measured_ms: measured, online: here, sessions: this.sessions[p.name] || null,
 				role: this.roleOf(p), code_status: this.codes[p.name] ? this.codes[p.name].status : null, modes_from: this.codes[p.name] ? this.codes[p.name].from : null,
+				log: this.logs[p.name] ? this.logs[p.name].last : null, log_n: this.logs[p.name] ? { lines: this.logs[p.name].lines, errors: this.logs[p.name].errors, console: this.logs[p.name].console } : null,
 				inventory: (p.items || []).map((it) => (it ? { name: it.name, q: it.q, level: it.level, stat_type: it.stat_type, p: typeof it.p === "string" ? it.p : undefined } : null)),
 				// now: hp and mp, the condition keys on it, its CODE's mode; kills by type and the last one's t, from the base
 				hp: p.hp, mp: p.mp, s: Object.keys(p.s || {}).sort(), mode: here && this.modeTotals[p.name] ? this.modeTotals[p.name].cur ?? null : null,
@@ -1812,7 +1828,7 @@ class Live {
 		const coarse = this.coarse,
 			gr = this.grid;
 		const out = {
-			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 4,
+			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 5,
 			precision: { dmg_done: "net", dmg_taken: "net", heal: "net", overkill: "exact", overheal: "exact", items: "exact", gold: "exact", gold_other: "exact", mana_by_skill: "exact",
 				sample_ms: coarse ? null : SAMPLE_MS, modes: coarse ? "coarse" : "exact", grid: coarse ? null : "exact", attrib: coarse ? null : "exact" },
 			history_cols: HISTORY_COLS, roster,

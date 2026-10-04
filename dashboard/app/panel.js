@@ -391,7 +391,7 @@ function CharCard({ w, p, now, rp, v }) {
 	const whole = rp ? " (the run)" : "", deaths = rp ? (v != null ? deathsAt(w, p.name, v, baseOf(w)) : null) : p.deaths;
 	const facts = [html`<div class="sr"><span>Free slots${end}</span><b>${now && now.free != null ? now.free : p.free}</b></div>`, where ? html`<div class="sr wide"><span>Time on${whole}</span><b>${where}</b></div>` : null,
 		p.trips || p.outings ? [html`<div class="sr"><span>Trips${whole}</span><b>${p.trips}/${p.outings}</b></div>`, html`<div class="sr"><span>Out${whole}</span><b>${pct(p.out_share)}</b></div>`] : p.town_visits != null ? html`<div class="sr"><span>Town visits${whole}</span><b>${p.town_visits}</b></div>` : null];
-	return html`<section class="ch" style=${cvar(p.type)}><div class="whohd"><span class="slot">${weaponOf(gear, 24)}</span><span class="chn"><b>${p.name}</b><span class="gu">L${lv} ${p.type}</span></span><${Grave} n=${deaths} /></div>
+	return html`<section class="ch" style=${cvar(p.type)}><div class="whohd"><span class="slot">${weaponOf(gear, 24)}</span><span class="chn"><b>${p.name}</b><span class="gu">L${lv} ${p.type}</span></span><${Grave} n=${deaths} /><${Errs} p=${p} /></div>
 		<${Bars} hp=${now ? now.hp : p.hp} mhp=${now ? now.max_hp : st && st.max_hp} mp=${now ? now.mp : p.mp} mmp=${now ? now.max_mp : st && st.max_mp} xp=${xp} mxp=${mx} dead=${now ? now.rip : p.rip} />
 		<${Sheet} p=${gear} />${conds.length ? html`<${CondIcons} w=${w} cs=${conds} />` : null}
 		${x ? html`<div class="cst">${x.main.map((r) => html`<${Sr} r=${r} />`)}</div>` : html`<p class="mnote">no stats in this snapshot (recorded since 2026-09-26)</p>`}
@@ -401,6 +401,8 @@ function CharCard({ w, p, now, rp, v }) {
 	</section>`;
 }
 const Grave = ({ n, s = 18 }) => (n ? html`<span class="dth">${mon("gravestone", s)}${n}</span>` : null);
+// its CODE's errors in the game log (uncaught errors, the game's code_error lines) and console errors and warnings
+const Errs = ({ p }) => { const n = p.log_n; return n && (n.errors || n.console) ? html`<span class="dth" data-tip=${(n.errors || 0) + " CODE errors in its game log, " + (n.console || 0) + " console errors and warnings (Game log, below)"}>${icon("condition_bad")}${n.errors || 0}</span>` : null; };
 // the game log, newest last; times are game time from the start of the measured part (the chart's 0h00), given the
 // world's virtual clock at the snapshot; else the virtual time of day
 function GameLog({ w, p }) {
