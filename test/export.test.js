@@ -89,7 +89,7 @@ test("end state: raw items (grace, locked), gear incl. a trade slot, p, the whol
 test("an export on request (steering's export) is written and listed, and changes nothing in the run", { skip, timeout: 300000 }, () => {
 	const d = tmp();
 	const run = (steer, live) => {
-		const f = write(d, `s${live.length}.json`, { format: "chronal-setup/1", name: "ex", run: { duration: "2m" }, characters: [{ name: "Ran", class: "ranger", code: { file: path.join(__dirname, "..", "codes", "example", "farm.js") }, state: { level: 20 }, params: { farm: { monsters: ["goo"] } } }], ...(steer ? { steer } : {}) });
+		const f = write(d, `s${live.length}.json`, { format: "chronal-setup/1", name: "ex", run: { duration: "2m" }, characters: [{ name: "Ran", class: "ranger", at: "main:-64:787", code: { dir: path.join(__dirname, "..", "codes", "example"), entry: "fighter" }, state: { level: 20 }, params: { farm: { map: "main", x: -64, y: 787, monsters: ["goo"] } } }], ...(steer ? { steer } : {}) });
 		const res = path.join(live, "r.json"),
 			r = spawnSync(process.execPath, [path.join(__dirname, "..", "chronal.js"), "run", f, "--live", live, "--result", res, "--no-build"], { encoding: "utf8" });
 		assert.equal(r.status, 0, r.stderr);
@@ -102,5 +102,6 @@ test("an export on request (steering's export) is written and listed, and change
 	assert.deepEqual(snap.state.exports.map((e) => e.label), ["mid", "end"]);
 	assert.ok(fs.existsSync(path.join(b.state, "..", "mid", "Ran.json")));
 	const pick = (r) => ({ level: r.characters.Ran.level, xp: r.characters.Ran.xp, gold: r.characters.Ran.gold, kills: r.characters.Ran.kills, map: r.characters.Ran.map });
+	assert.ok(a.characters.Ran.kills > 10, "it farmed: " + a.characters.Ran.kills);
 	assert.deepEqual(pick(b), pick(a));
 });
