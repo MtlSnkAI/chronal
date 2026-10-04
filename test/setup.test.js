@@ -228,6 +228,33 @@ test("bank: from an export it keeps unlocked and rewards, notes the keys it leav
 	assert.throws(() => S.loadSetup(setupFile(d, { defaults: { code: { file: "farm.js" } }, accounts: { x: { bank: { unlocked: ["bank_b"] } } }, characters: [{ name: "X", class: "ranger", account: "x" }] }), { G }), /bank\.unlocked/);
 });
 
+test("server state: state.p (key by key over an export's tracker kill counts) and state.s reach the character's doc, account cash its user; bad values are problems", () => {
+	const d = layout();
+	write(d, "Tr.json", JSON.stringify({ ...EXP, character: { ...EXP.character, tracker: { monsters: { goo: 50 }, monsters_diff: { goo: 2 }, exchanges: { gem0: 1 }, max: {} } } }));
+	const ug = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+	const s = S.loadSetup(setupFile(d, {
+		defaults: { code: { file: "farm.js" } },
+		accounts: { a: { cash: 120 } },
+		characters: [
+			{ name: "T", class: "ranger", account: "a", state: { from: "Tr.json", p: { ugrace: ug, ograce: 3, firstbuff: true } } },
+			{ name: "U", class: "ranger", account: "a", state: { p: { stats: { monsters: { bee: 9 } } }, s: { mluck: { ms: 60000, f: "Me" } } } },
+		],
+	}), { G });
+	const { resolved } = S.resolveSetup(s, { G });
+	const [t, u] = resolved.characters;
+	assert.deepEqual(S.characterOver(t).info.p, { stats: { monsters: { goo: 50 }, monsters_diff: { goo: 2 }, exchanges: { gem0: 1 } }, ugrace: ug, ograce: 3, firstbuff: true });
+	assert.deepEqual(S.characterOver(u).info.p, { stats: { monsters: { bee: 9 } } }); // (the setup's stats replace an export's whole)
+	assert.deepEqual(S.characterOver(u).info.s, { mluck: { ms: 60000, f: "Me" } });
+	assert.equal(S.characterOver(t).info.s, undefined); // (an export's conditions are never taken)
+	assert.equal(S.accountUser(resolved.accounts.a).cash, 120);
+	const bad = (state, acc = {}) => assert.throws(() => S.loadSetup(setupFile(d, { defaults: { code: { file: "farm.js" } }, accounts: { a: acc }, characters: [{ name: "B", class: "ranger", account: "a", state }] }), { G }));
+	bad({ p: { ugrace: [1, 2] } });
+	bad({ p: { nope: 1 } });
+	bad({ p: { firstbuff: "yes" } });
+	bad({ s: { mluck: 5 } });
+	bad({}, { cash: -1 });
+});
+
 test("setupKey: the run knobs, name, strategy, notes and provenance don't count; states, CODE, world, party and the sim version do", () => {
 	const d = layout();
 	const r = (o = {}, ov) => S.resolveSetup(S.loadSetup(setupFile(d, { name: "x", characters: [{ name: "A", class: "ranger", code: { file: "farm.js" }, note: "n1" }], ...o }), { G, overrides: ov }), { G }).resolved;
@@ -523,6 +550,29 @@ test("start.js follows a page that the server disconnects at the start (its CODE
 		assert.equal(order[0], sim.clients[sim.clients.length - 1]);
 		assert.equal(clients.Dc, order[0]);
 		assert.equal(await order[0].query("character.name"), "Dc");
+	} finally {
+		await sim.close();
+	}
+});
+
+test("server state on a real sim: state.p reaches the server's player (grace, tracker kill counts), account cash its user", { timeout: 120000 }, async (t) => {
+	const { config } = require("../lib/config");
+	if (!fs.existsSync(path.join(config().al_root, "design"))) return t.skip(`no game at ${config().al_root}`);
+	const { startSetup } = require("../sim/start");
+	const d = layout();
+	const ug = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28];
+	const { resolved, bundles } = S.resolveSetup(S.loadSetup(setupFile(d, {
+		world: { threads: false }, accounts: { main: { cash: 33 } },
+		characters: [{ name: "Ran", class: "ranger", account: "main", state: { level: 30, p: { ugrace: ug, ograce: 5, stats: { monsters: { goo: 1234 } } } }, at: "main:0:0", code: { file: "farm.js" } }],
+	})));
+	const { sim } = await startSetup(resolved, bundles, { live: false });
+	try {
+		const p = Object.values(sim.server.players).find((x) => x.name === "Ran");
+		assert.deepEqual([...p.p.ugrace], ug); // (the server's realm: a copy to compare)
+		assert.equal(p.p.ograce, 5);
+		assert.equal(p.p.stats.monsters.goo, 1234);
+		const id = sim.accounts.get("main").user_id;
+		assert.equal(sim.env.db.collection(sim.env.kindOf(id)).store.get(id).cash, 33);
 	} finally {
 		await sim.close();
 	}

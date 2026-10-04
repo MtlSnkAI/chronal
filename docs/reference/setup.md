@@ -122,6 +122,11 @@ character yet, so more than 5 online characters start a few game seconds apart, 
   starter's whole. With `from`, the gear is the export's (or the given `slots`) and nothing else: a starter slot it
   doesn't list starts empty.
 - `skin`, `cx` (cosmetics `{ <place>: <cosmetic> }`): its looks, given or the export's; else the class's default look.
+- `p`: its server-side state, which live never shows (modelling): `ugrace`, `cgrace` (15 numbers each: its upgrade and
+  compound grace per level), `ograce`, `stats` (`{ monsters, monsters_diff, exchanges }`: the tracker's kill counts),
+  `achievements`, `ap`, `firstbuff` (the holiday spirit taken), `encouragement_reached80`, `first`, `first_drop`, `dt`,
+  `rewards`, `minutes`. Key by key over an export's tracker kill counts (the snippet exports them for a tracker holder).
+- `s`: its conditions at the start (`{ <condition>: { ms, ... } }`), e.g. an mluck.
 - Never taken from an export: conditions, the merchant stand, the upgrade queue.
 
 **params** standard keys: `farm: { map, x, y, monsters: [types] }` (the example bot reads it), `path: [{ to: level,
@@ -133,6 +138,7 @@ farm }]`; anything else passes through to the CODE.
 |---|---|---|
 | `age_days` | `0` | 0 = created at the run's start, so New Player (x5 xp at first, 40 days in 10-day phases, ends at L80) as a new player gets it; N = created N days before; from 40 on no New Player |
 | `bank` | a new account's | `{ "from": <export> }` (its bank gold, packs, `unlocked` rooms and claimed `rewards`; other keys are left out, with a warning) or `{ "gold": 5000, "items0": [], ..., "unlocked": { "bank_b": true }, "rewards": [] }`; none: 1000 gold, two empty packs. A bank with packs in `bank_b` (items8-23) or `bank_u` (items24+) gets that room unlocked (an API pull's has no `unlocked`) |
+| `cash` | the bank export's account cash, else 0 | the account's shells (a whole number) |
 | `storage` | `{}` | what the CODE's `get(key)` returns at the start; `null` unsets |
 | `local_storage` | `{}` | raw `localStorage` keys (text) |
 

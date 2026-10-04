@@ -37,7 +37,7 @@ const ACCOUNT = {
 		Zed: profile("Zed", "priest", { online: true, server: "EUI" }),
 		Ran: profile("Ran", "ranger", { conditions: { encouragement_new: { expires: EXPIRES } } }),
 	},
-	bank: { success: true, retrieved_at: NOW.toISOString(), freshness: "possibly_stale", stale: true, gold: 777, packs: { items0: [{ name: "ringsj", level: 1, locked: true }, null], items1: [] } },
+	bank: { success: true, retrieved_at: NOW.toISOString(), freshness: "possibly_stale", stale: true, gold: 777, shells: 40, packs: { items0: [{ name: "ringsj", level: 1, locked: true }, null], items1: [] } },
 	codes: [
 		{ slot: "1", name: "core", version: 3, code: "var core = 1;\n" },
 		{ slot: "2", name: "core", version: 1, code: "// a second core\n" },
@@ -108,6 +108,7 @@ test("pull: a folder of exports, the bank, CODE slots, the account's age, the ga
 	assert.deepEqual(read(path.join(dir, "Zed.json")).bank, bank);
 	assert.deepEqual(read(path.join(dir, "bank.json")), { bank, bank_source: { from: "api", at: NOW.toISOString(), freshness: "possibly_stale" } });
 	assert.deepEqual(ran.account.characters.map((c) => [c.name, c.online]), [["Zed", true], ["Ran", false]]);
+	assert.equal(ran.account.cash, 40); // the account's shells
 
 	// CODE: by name; the second "core" and an unwritable name are listed, not written
 	assert.deepEqual(fs.readdirSync(path.join(dir, "code")).sort(), ["Ran.js", "core.js", "slots.json"]);
@@ -214,6 +215,7 @@ test("a setup runs from a pull: state.from, bank.from and code.dir (the characte
 	assert.equal(c.state.level, 50);
 	assert.deepEqual([c.state.slots.mainhand.name, c.state.slots.mainhand.level], ["bow", 7]);
 	assert.deepEqual(resolved.accounts.acc.bank, { gold: 777, items0: [{ name: "ringsj", level: 1, l: "l" }, null], items1: [] });
+	assert.equal(resolved.accounts.acc.cash, 40); // (the bank's export's account)
 	assert.equal(c.code.entry, "Ran");
 });
 
