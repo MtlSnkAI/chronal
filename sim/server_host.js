@@ -191,6 +191,23 @@ async function startServer(env, { serverKey = "local", timeoutMs = 60000, season
 	};
 	const file = path.join(env.root, "node/server.js");
 	const ctx = runNodeFile(env, file, { argv: [process.execPath, file, serverKey] });
+	// its own /eval: realm_broadcast() reaches every realm through servers_eval() (L80, blessings, a first login), this
+	// one included; run here as the route runs it (the code in the server's scope, its data parsed), a ms later as a
+	// request comes back. Any other address stays unreachable (the callers log one line: the error has no stack).
+	const evalRoute = vm.runInContext(`(async function (code, data) { var output = ""; try { eval(code); output = await output; } catch (e) { console.log("\\n" + code); log_trace("chttp_eval", e); } return JSON.stringify(output); })`, ctx);
+	ctx.fetch = async (url, opts = {}) => {
+		const def = ctx.server_def,
+			u = new URL(String(url));
+		if (!def || u.host !== def.address || u.pathname !== def.api_path + "eval") {
+			const e = new Error(`[sim] network disabled: ${opts.method || "GET"} ${url}`);
+			e.stack = e.message;
+			throw e;
+		}
+		const body = new URLSearchParams(String(opts.body || ""));
+		await new Promise((done) => env.clock.at(env.clock.now + 1, done));
+		const text = await evalRoute(body.get("code"), JSON.parse(body.get("data") || "{}"));
+		return { ok: true, status: 200, text: async () => text, json: async () => JSON.parse(text) };
+	};
 	for (const s of seasons) ctx.events[s] = true;
 	if (seasons.includes("valentines")) ctx.events.pinkgoo = 60;
 	if (seasons.includes("holidayseason")) ctx.events.snowman = 60;
