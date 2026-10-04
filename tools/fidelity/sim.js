@@ -84,8 +84,8 @@ const name = opt.name || `fid-${cfg.preset}-${cfg.minutes}m${live ? "-live" + li
 const out = path.resolve(opt.out || path.join(config().live_dir, "fidelity"));
 fs.mkdirSync(path.join(out, "setups"), { recursive: true });
 // runs of this name from before: replaced (compare.js would count them with the new ones)
-const old = fs.readdirSync(out).filter((f) => f.startsWith(name + "-s") && /^[^.]+-s\d+--\d+\./.test(f));
-for (const f of old) fs.rmSync(path.join(out, f));
+const old = fs.readdirSync(out).filter((f) => f.startsWith(name) && /^-s\d+--\d+\./.test(f.slice(name.length)));
+for (const f of old) fs.rmSync(path.join(out, f), { recursive: true, force: true }); // (a recording is a directory)
 if (old.length) notes.push(`replaced the earlier runs named ${name}`);
 console.log(`pull ${pull}; ${name}: ${who} at ${cfg.preset}, warm-up ${cfg.warmup_s} s, window ${cfg.minutes} min, seeds ${seeds}`);
 for (const n of notes) console.log(n);
