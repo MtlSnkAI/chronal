@@ -8,6 +8,8 @@
 | [`run`](#chronal-run) | run a setup in the sim |
 | [`example`](#chronal-example) | print an annotated setup |
 | [`new`](#chronal-new) | compose a setup from pulls, templates, CODE sets; check or run it |
+| [`ps`](#chronal-ps) | the runs running |
+| [`stop`](#chronal-stop) | stop runs |
 | [`dash`](#chronal-dash) | the dashboard |
 | [`install`](#chronal-install) | get the game the sim runs |
 | [`pull`](#chronal-pull) | pull your live account, or another player's public page |
@@ -43,8 +45,9 @@ chronal run --code my.js [--dir DIR] --class ranger [--name N] [--level 40] [--a
 | `--code FILE --class C` | a one-character setup without a file: `--dir` its slots, `--name`, `--level`, `--at`, `--farm` (sets `params.farm`) |
 
 - `<id>.setup.json` (a run's side file, beside its snapshot) runs that run again: its stored CODE and start states.
-- SIGINT / SIGTERM or the dashboard's Stop end the run at the next game minute with its final numbers; a second signal
-  exits at once.
+- It prints its pid. SIGINT / SIGTERM, `chronal stop` or the dashboard's Stop end the run at the next game minute with
+  its final numbers (with `--no-live` too); a second signal exits at once. `chronal new --run` and the fidelity tool's
+  `sim.js` pass SIGINT / SIGTERM on to their runs and start no more.
 - A CODE that asks for a slot its setup doesn't give fails the run (exit 1).
 - At its end (done, stopped or halted) the run writes its state ([state exports](export.md)) to `<id>.state/end/`; the
   dashboard's Export state and a steering entry's `export` write one while it runs.
@@ -136,6 +139,28 @@ chronal new --chars Ranger,Priest --storage mode='"farm"' --steer '20m mode="bos
 - The game's limits are checked: 3 characters and 1 merchant in game per account, 3 besides merchants per IP.
 - The printout lists the CODE each character runs and why, names in CODE, the storage keys the CODE reads that no
   account sets, and warnings.
+
+## chronal ps
+
+```
+chronal ps [--dir LIVE] [--all]
+```
+
+The runs running in the live dir (default: config `live_dir`): id, state (`running`; `stalled`: its process runs, no
+snapshot for 15 s), pid, speed, game minutes, tag. `--all`: every run (also `done`, `stopped`, `failed`).
+
+## chronal stop
+
+```
+chronal stop <run id | <id>.json ...> [--dir LIVE] [--force [--wait 10]]
+chronal stop --tag T [--all] | --all
+```
+
+Asks each run to stop, as the dashboard's Stop: a request in `<id>.ctl` it takes at its next poll (about once a real
+second); it ends at its next game minute with its final numbers and its end state. `--tag T`: the running runs with
+that tag (several need `--all`); `--all` alone: every running run. `--force`: SIGTERM to the run's process, only when
+it is verified on this host (pid, start time, cwd), then SIGKILL if it hasn't ended after `--wait` seconds. Exit 1 when
+no run matches or one couldn't be asked or signalled.
 
 ## chronal dash
 

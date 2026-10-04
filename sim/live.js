@@ -37,7 +37,8 @@
 // setup) and its CODE in <dir>/code/ (setup.js storeBundles) are written at construction, the snapshot's setup block,
 // roster, run plan, versions and setup_key come from it.
 // Run control: the snapshot names its process (proc), how to run it again (run) and how it ended (end); the dashboard
-// asks for a stop through <id>.ctl, read at the snapshot cadence (sim.halt("dashboard"), acked in control.ack).
+// (or chronal stop) asks for a stop through <id>.ctl, read at the snapshot cadence (sim.halt("dashboard" or its by),
+// acked in control.ack).
 // Naming: here S is the server's vm context (its globals); the server's own `var S` ("server data") is S.S.
 const fs = require("node:fs"),
 	os = require("node:os"),
@@ -1278,14 +1279,15 @@ class Live {
 			// a dashboard must never break a run
 		}
 	}
-	// <id>.ctl ({ seq, stop?, speed?, at }, written by the dashboard): a stop halts the run (the sim ends it at its next
-	// chunk and closes with end "stopped"); a sim has no speed to set, so that is only acknowledged
+	// <id>.ctl ({ seq, stop?, by?, export?, speed?, at }, written by the dashboard or chronal stop): a stop halts the run
+	// (the sim ends it at its next chunk and closes with end "stopped", detail its by); a sim has no speed to set, so
+	// that is only acknowledged
 	poll() {
 		const c = fs.existsSync(this.ctl) ? JSON.parse(fs.readFileSync(this.ctl, "utf8")) : null;
 		if (!c || !(c.seq > this.ack)) return;
 		if (c.stop) {
 			if (typeof this.sim.halt !== "function") return;
-			this.sim.halt("dashboard");
+			this.sim.halt(c.by === "chronal stop" ? c.by : "dashboard");
 		}
 		// an export of the run's state now: the run's loop takes it at its next chunk (page reads are async)
 		if (c.export && !this.exportWanted) this.exportWanted = { label: String(c.export), seq: c.seq };

@@ -16,6 +16,10 @@ Run
   new ...                   compose a setup (pulls, CODE sets, templates; chronal new --help)
 
 Watch
+  ps [--dir LIVE] [--all]   the runs running (their pid, speed, game time); --all: every run
+  stop <run id | --tag T | --all> [--dir LIVE] [--force [--wait S]]
+                            ask runs to stop (at their next game minute, with their final numbers); --force:
+                            SIGTERM to their verified process, then SIGKILL after S s
   dash [--port N] [--host H] [--dir LIVE] [--gc-code]
                             the dashboard: every run, live; stop, rerun, compare; new runs; recorded runs
                             replayed in the game's own page (run --record)
@@ -39,6 +43,8 @@ const COMMANDS = {
 	help: () => console.log(HELP),
 	run: () => require("./sim/run").main(args),
 	continue: () => require("./lib/continue").cli(args),
+	ps: () => require("./lib/runs").cli("ps", args),
+	stop: () => require("./lib/runs").cli("stop", args),
 	example: () => process.stdout.write(require("./lib/example").example()),
 	new: () => require("./lib/compose").cli(args),
 	dash: () => require("./dashboard/server").cli(args),

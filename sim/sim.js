@@ -12,8 +12,9 @@ let rejectionHandler = false;
 // round trip client<->server ms when a caller gives none (a setup's world.ping has the same default)
 const DEFAULT_PING = 18;
 
-// LIVE sims: SIGINT/SIGTERM halts them at the next game minute (the runner writes its numbers, close() the final
-// snapshot); a second signal writes their snapshots as they are and exits at once. Without LIVE, Node's default.
+// LIVE sims (and o.signals: chronal run's without live snapshots): SIGINT/SIGTERM halts them at the next game minute
+// (the runner writes its numbers, close() the final snapshot); a second signal writes their snapshots as they are and
+// exits at once. Else Node's default.
 const SIGNALS = ["SIGINT", "SIGTERM"],
 	halting = new Set();
 let signaled = null;
@@ -94,7 +95,7 @@ async function createSim(o) {
 	const sim = new Kind(clock, hub, env, server, { seed: o.seed ?? 1, latencyRange: [lo, hi] });
 	// opt-in live snapshots for the dashboard: read-only, outcomes unchanged
 	sim.live = require("./live").liveOf(sim, o.live);
-	if (sim.live) haltOnSignals(sim, true);
+	if (sim.live || o.signals) haltOnSignals(sim, true);
 	// replay recordings (lib/rec.js, o.record): <live dir>/<id>.rec/, one per character; threads mode with live snapshots
 	// only (the single-thread Sim's clients share one hub)
 	const record = !!o.record;

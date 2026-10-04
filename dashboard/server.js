@@ -45,11 +45,11 @@ const { cfg, config, gData, ROOT } = require("../lib/config");
 const SETUP = require("../lib/setup");
 const { newRuns } = require("./new");
 const { createViewer } = require("../viewer/server");
+// a run's process (verified by pid, start time and cwd), its state, its control requests (lib/runs.js: the CLI's too)
+const RUNS = require("../lib/runs"),
+	{ HOST, RUN_FILE, procStart, identify, alive, stateOf } = RUNS;
 
-const STALE_MS = 15_000,
-	VIEWER_IDLE_MS = 5 * 60e3, // the viewer's backend unused this long: closed
-	HOST = os.hostname(),
-	RUN_FILE = /^[\w.-]+--\d+\.json$/, // a run's snapshot; anything else in the live dir is a side file or a dot file
+const VIEWER_IDLE_MS = 5 * 60e3, // the viewer's backend unused this long: closed
 	SIDE = [".json", ".grid.ndjson", ".items.ndjson", ".ctl", ".setup.json", ".rec", ".state"], // a run's files, moved together (.rec: its replay recordings, .state: its state exports; dirs)
 	ON = new Set(["running", "stalled"]),
 	RANK = { running: 0, stalled: 0, stopped: 1, failed: 1, done: 2 },
@@ -105,61 +105,6 @@ const CUR_TOK = / (current [0-9a-f]{8}(?:\/[0-9a-f]{8})*)(?= |$)/,
 	WORLD_TOK = / (world \d+(?:\.\d+)?[smhd])(?= |$)/, // a new world age ("world 2h")
 	PING_TOK = / (ping \d+(?:\.\d+)?)(?= |$)/; // a new ping ("ping 5")
 const retok = (t, re, now) => retag(t, (re.exec(t) || [])[1], now);
-
-// A process by pid on this host: the start time in /proc/<pid>/stat (field 22, clock ticks since boot) tells it from a
-// later one with the same pid; its cwd is checked too before anything is signalled.
-function procStart(pid) {
-	try {
-		const s = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
-		return s.slice(s.lastIndexOf(")") + 2).split(" ")[19];
-	} catch (e) {
-		return null;
-	}
-}
-// true: that very process runs here; false: it has ended; null: can't tell (no proc, another host or user, no /proc)
-function identify(p) {
-	if (!p || !(p.pid > 0) || p.host !== HOST) return null;
-	try {
-		process.kill(p.pid, 0);
-	} catch (e) {
-		return e.code === "EPERM" ? null : false;
-	}
-	try {
-		if (p.start != null) {
-			if (procStart(p.pid) !== String(p.start)) return false;
-		} else if (p.cmdline && fs.readFileSync(`/proc/${p.pid}/cmdline`, "latin1") !== p.cmdline) return false;
-		if (p.cwd && fs.readlinkSync(`/proc/${p.pid}/cwd`).replace(/ \(deleted\)$/, "") !== p.cwd) return false;
-	} catch (e) {
-		return e.code === "ENOENT" ? false : null;
-	}
-	return true;
-}
-const seen = new Map(); // "host pid start cwd" -> { t, v }: one look per second
-function alive(p) {
-	if (!p || !p.pid) return null;
-	const k = [p.host, p.pid, p.start, p.cwd, p.cmdline].join(" "),
-		c = seen.get(k);
-	if (c && Date.now() - c.t < 1000) return c.v;
-	if (seen.size > 500) seen.clear();
-	const v = identify(p);
-	seen.set(k, { t: Date.now(), v });
-	return v;
-}
-const pidAlive = (pid) => {
-	try {
-		return process.kill(pid, 0), true;
-	} catch (e) {
-		return e.code === "EPERM";
-	}
-};
-function stateOf(w, a) {
-	const failed = !!(w.end && w.end.reason === "failed");
-	if (w.done) return failed ? "failed" : "done";
-	const stale = !(Date.now() - Date.parse(w.updated) <= STALE_MS);
-	if (a === true) return stale ? "stalled" : "running";
-	if (a === false || failed) return failed ? "failed" : "stopped";
-	return stale ? "stopped" : "running";
-}
 
 // git head, plus a hash of the uncommitted diff (as live.js writes versions.sim / versions.code)
 const git = (dir, ...a) => new Promise((resolve) => execFile("git", ["-C", dir, ...a], { encoding: "utf8", maxBuffer: 64 << 20 }, (e, out) => resolve(e ? null : out)));
@@ -356,17 +301,7 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 		const q = readJson(ctlPath(w.id), null);
 		return q && q.seq > (+w.control.ack || 0) ? { seq: q.seq, stop: !!q.stop, at: q.at ?? null } : null;
 	}
-	function request(w, patch) {
-		const ack = +w.control.ack || 0,
-			cur = readJson(ctlPath(w.id), null) || {},
-			open = +cur.seq > ack,
-			q = { seq: Math.max(+cur.seq || 0, ack) + 1 };
-		if (patch.stop || (open && cur.stop)) q.stop = true;
-		if (patch.export || (open && cur.export)) q.export = patch.export || cur.export;
-		q.at = Date.now();
-		writeJson(ctlPath(w.id), q);
-		return q;
-	}
+	const request = (w, patch) => RUNS.ctlRequest(ctlPath(w.id), +w.control.ack || 0, patch);
 	function stopRun(id, force) {
 		const w = worlds().find((x) => x.id === id);
 		if (!w) return [404, { reason: `no run ${id}` }];

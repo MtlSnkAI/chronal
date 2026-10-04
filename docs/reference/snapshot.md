@@ -124,11 +124,12 @@ run: {
   seed, duration_ms, warmup_ms, until,   // the plan (a setup's run block); null = until stopped / not set
 },
 ```
-- **Control file** `<id>.ctl`: `{ seq, stop?: true, at }`, written whole by the dashboard. The run reads it at its
+- **Control file** `<id>.ctl`: `{ seq, stop?: true, by?, export?, at }`, written whole by the dashboard or `chronal stop`
+  (`by: "chronal stop"`). The run reads it at its
   snapshot cadence (a stop halts it at the next game minute) and sets `control.ack` to the `seq` it applied. The run
   removes the file when it ends.
 - **end / done:** `done: true` with `end.reason` `complete` (detail null, or `"until: <condition> at <N> game min"`
-  when `run.until` ended it) or `stopped` (detail `"dashboard"`, the
+  when `run.until` ended it) or `stopped` (detail `"dashboard"`, `"chronal stop"`, the
   signal, or `"SIGTERM x2"` for a second signal) is final. A process that exits without closing (an exception) writes
   `end: { failed, "exit <code>" }` with `done: false` from its exit hook, and a run whose CODE asks for a slot its setup
   doesn't give (`require_code` / `load_code`) closes with `end: { failed, "<character>: require_code(\"<name>\"): ..." }`
