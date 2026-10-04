@@ -318,7 +318,7 @@ const main = (argv) => (async () => {
 		const b = q0[rc.name] || { l: rc.state.level, xp: rc.state.xp, g: rc.state.gold, kills: 0, deaths: 0 };
 		const gained = xpTotal(levels, a) - xpTotal(levels, b),
 			xp_h = res.virtualMs ? (gained / res.virtualMs) * 3600e3 : 0;
-		characters[rc.name] = { ...extra, level: a.l, start_level: b.l, xp: gained, xp_h, gold: a.g, gold_gained: a.g - b.g, kills: a.kills - b.kills, deaths: a.deaths - b.deaths, map: a.map, mode: a.mode, lonewolf: a.lw, slots: a.slots, online: !!c };
+		characters[rc.name] = { ...extra, level: a.l, start_level: b.l, xp: gained, xp_h, gold: a.g, gold_gained: a.g - b.g, kills: a.kills - b.kills, deaths: a.deaths - b.deaths, map: a.map, mode: a.mode, lonewolf: a.lw, slots: a.slots, online: !!c, ...((resolved.accounts[rc.account] || {}).totals === false ? { outside: true } : {}) };
 		console.log(`${rc.name.padEnd(12)} L${a.l} xp ${(gained / 1e6).toFixed(2)}M (${(xp_h / 1e6).toFixed(1)}M/h) kills ${a.kills - b.kills} deaths ${a.deaths - b.deaths} gold ${a.g - b.g >= 0 ? "+" : ""}${a.g - b.g} ${a.map} ${a.mode}${a.lw ? " lone wolf" : ""}${extra.party ? " party " + extra.party : ""}${c ? "" : ` (left: ${left[rc.name].reason})`}`);
 	}
 	const fighter = resolved.characters.find((c) => c.class !== "merchant"),

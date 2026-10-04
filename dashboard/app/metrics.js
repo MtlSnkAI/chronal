@@ -43,7 +43,9 @@ export function statsOf(w) {
 	if (s) return s;
 	const hrs = (w.measured_ms || 0) / H, P = membersOf(w).map(cstat), mp = w.players.find((p) => p.type === "merchant");
 	s = { hrs, secs: hrs * 3600, per: (v, d = hrs) => (v != null && d > 0 ? v / d : null), P, M: P.find((c) => c.p === mp) || null, party: {}, dv: delivered(w), pots: {} };
-	for (const k of ["xp", "kills", "credits", "deaths", "hp", "mp", "dmg", "overkill", "taken", "heal", "overheal", "recv", "mana", "combat", "income", "spent"]) s.party[k] = tot(P, (c) => c[k]);
+	// (the party's sums leave out an account out of the totals: a market account's characters)
+	const In = P.filter((c) => !c.p.outside);
+	for (const k of ["xp", "kills", "credits", "deaths", "hp", "mp", "dmg", "overkill", "taken", "heal", "overheal", "recv", "mana", "combat", "income", "spent"]) s.party[k] = tot(In, (c) => c[k]);
 	for (const c of P) for (const [k, n] of Object.entries(potsOf(c.p))) s.pots[k] = (s.pots[k] || 0) + n;
 	STATS.set(w, s);
 	return s;

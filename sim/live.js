@@ -324,6 +324,8 @@ class Live {
 		this.ack = 0;
 		this.logs = {}; // name -> { lines, errors, console, last }: its game log (logged())
 		this.taps = new WeakMap(); // single-thread Sim: a client -> its game log's tap (report.js logTap)
+		this.outside = new Set(); // characters whose gold the totals leave out (their account's totals: false)
+		this.outsideAccounts = [];
 		this.exportWanted = null; // an export the dashboard asked for (its label): the run's loop writes it (exported())
 		this.exports = []; // the state exports written: { label, at, t, dir }
 		this.end = null;
@@ -399,8 +401,11 @@ class Live {
 				versions: { sim: simVersion(), code: first.git ? first.git.commit.slice(0, 7) : first.code_dir || first.file ? gitVersion(first.code_dir || path.dirname(first.file)) : "?", code_hash: SETUP.codeHash(rs) },
 				setup: { format: rs.format, file: this.id + ".setup.json", name: rs.name, from: (rs.resolved && rs.resolved.from) || null, hash: SETUP.sideHash(rs) },
 			};
+			// accounts.<k>.totals false (a market account): its characters' and bank's gold out of the run's gold totals
+			this.outsideAccounts = Object.keys(rs.accounts || {}).filter((k) => rs.accounts[k].totals === false);
+			this.outside = new Set(rs.characters.filter((c) => this.outsideAccounts.includes(c.account)).map((c) => c.name));
 			this.roster = rs.characters.map((c) => ({ name: c.name, type: c.class, level: c.state ? c.state.level : null, role: c.role || ROLE[c.class] || "dps", code: c.code.entry, gear_hash: c.state ? gearHash(c.state.slots) : null,
-				account: c.account, party: members.has(c.name), code_hash: c.code.hash, ...(c.online === false ? { online: false } : {}) }));
+				account: c.account, party: members.has(c.name), code_hash: c.code.hash, ...(c.online === false ? { online: false } : {}), ...(this.outside.has(c.name) ? { totals: false } : {}) }));
 			this.explicit = new Set(rs.characters.filter((c) => c.role).map((c) => c.name));
 		} else {
 			this.meta = {
@@ -1782,6 +1787,7 @@ class Live {
 				maps: Object.fromEntries(Object.entries(s.maps).map(([k, ms]) => [k, +Math.min(1, ms / Math.max(1, measured)).toFixed(3)])),
 				gear, gear_stat, stats: statsOf(p), history: s.history || null, measured_ms: measured, online: here, sessions: this.sessions[p.name] || null,
 				role: this.roleOf(p), code_status: this.codes[p.name] ? this.codes[p.name].status : null, modes_from: this.codes[p.name] ? this.codes[p.name].from : null,
+				...(this.outside.has(p.name) ? { outside: true } : {}),
 				log: this.logs[p.name] ? this.logs[p.name].last : null, log_n: this.logs[p.name] ? { lines: this.logs[p.name].lines, errors: this.logs[p.name].errors, console: this.logs[p.name].console } : null,
 				inventory: (p.items || []).map((it) => (it ? { name: it.name, q: it.q, level: it.level, stat_type: it.stat_type, p: typeof it.p === "string" ? it.p : undefined } : null)),
 				// now: hp and mp, the condition keys on it, its CODE's mode; kills by type and the last one's t, from the base
@@ -1876,7 +1882,7 @@ class Live {
 				max: sorted.length ? sorted[sorted.length - 1] : null,
 			},
 			load: { now: done || !recent ? null : recent.load, avg: loadAvg },
-			gold: { start: base ? base.gold : gold, now: gold },
+			gold: { start: base ? base.gold : gold, now: gold, ...(this.outsideAccounts.length ? { outside: this.outsideAccounts } : {}) },
 			kills: { total: sum(kills), by_type: kills, others: { total: sum(okills), by_type: okills, by: since(this.okBy, base && base.okBy) } },
 			deaths: { total: this.deaths.length - (base ? base.deaths : 0), groups: [...groups.values()].sort((a, b) => b.n - a.n).slice(0, 60), recent: measuredDeaths.slice(-10).map(({ v: dv, ...d }) => ({ ...d, t: rel(dv) })) },
 			party: { members, merchant, merchant_in_party: this.party.merchant_in, formed_ms: members.length > 1 ? this.party.formed : null, party_ms: this.party.ms, groups: partyGroups, history: this.party.history },
@@ -1921,6 +1927,7 @@ class Live {
 	goldOf(list) {
 		const env = this.sim.env,
 			banks = new Map();
+		list = list.filter((p) => !this.outside.has(p.name)); // (an account out of the totals: its characters and bank)
 		for (const p of list) if (p.owner && p.user && p.user.gold != null) banks.set(p.owner, p.user.gold);
 		for (const p of list)
 			if (p.owner && !banks.has(p.owner))

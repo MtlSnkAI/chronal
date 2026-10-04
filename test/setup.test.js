@@ -616,3 +616,32 @@ test("linked accounts on a real sim: a new Steam-linked account's first characte
 	assert.deepEqual(await one({ platform: "steam", pid: "76561190000000002", newcomer: "claimed" }), { first: false, blessing: false, auth: "76561190000000002" });
 	assert.deepEqual(await one(null), { first: undefined, blessing: false, auth: null });
 });
+
+test("accounts.<k>.totals: false is validated, kept, and doesn't change the setup key", () => {
+	const d = layout();
+	const lo = (totals) => S.loadSetup(setupFile(d, { defaults: { code: { file: "farm.js" } }, accounts: { a: {}, m: totals === undefined ? {} : { totals } }, characters: [{ name: "A", class: "ranger", account: "a" }, { name: "M", class: "merchant", account: "m" }] }), { G });
+	const off = S.resolveSetup(lo(false), { G }).resolved,
+		on = S.resolveSetup(lo(undefined), { G }).resolved;
+	assert.equal(off.accounts.m.totals, false);
+	assert.equal(on.accounts.m.totals, undefined);
+	assert.equal(S.setupKey(off, "v"), S.setupKey(on, "v"));
+	assert.throws(() => lo("no"), /accounts\.m\.totals/);
+});
+
+test("totals on a real run: an account with totals false is out of the snapshot's gold, its characters marked", { timeout: 180000 }, (t) => {
+	const { config } = require("../lib/config");
+	if (!fs.existsSync(path.join(config().al_root, "design"))) return t.skip(`no game at ${config().al_root}`);
+	const d = layout(),
+		live = tmp(),
+		res = path.join(live, "r.json");
+	const f = setupFile(d, { run: { duration: "20s" }, accounts: { a: { bank: { gold: 100 } }, mkt: { totals: false, bank: { gold: 5e9 } } },
+		characters: [{ name: "Ran", class: "ranger", account: "a", state: { gold: 50 }, code: { file: "farm.js" } }, { name: "Mkt", class: "merchant", account: "mkt", state: { gold: 2e9 }, code: { file: "farm.js" } }] });
+	const r = require("node:child_process").spawnSync(process.execPath, [path.join(__dirname, "..", "chronal.js"), "run", f, "--live", live, "--result", res, "--no-build", "--no-export"], { encoding: "utf8" });
+	assert.equal(r.status, 0, r.stderr);
+	const out = JSON.parse(fs.readFileSync(res, "utf8")),
+		snap = JSON.parse(fs.readFileSync(out.live, "utf8"));
+	assert.deepEqual(snap.gold, { start: 150, now: 150, outside: ["mkt"] });
+	assert.equal(snap.players.find((p) => p.name === "Mkt").outside, true);
+	assert.equal(snap.roster.find((p) => p.name === "Mkt").totals, false);
+	assert.equal(out.characters.Mkt.outside, true);
+});

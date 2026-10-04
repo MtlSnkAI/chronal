@@ -70,7 +70,7 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `trips_available` | whether merchant trips are measured (`false` in the single-thread Sim) |
 | `speed` | `{ now, avg, median, min, max }`: game ms per real ms, now (since the previous snapshot; null when done), over the measured part, and the median, lowest and highest of the snapshots' |
 | `load` | `{ now, avg }`: per thread the share of real time it was busy (the busiest limits the speed) (threads mode) |
-| `gold` | `{ start, now }`: every character's gold plus each account's bank gold, at the base and now |
+| `gold` | `{ start, now, outside? }`: every character's gold plus each account's bank gold, at the base and now; `outside`: the accounts left out (`accounts.<k>.totals` false: their characters and bank) |
 | `kills` | `{ total, by_type, others }`: monsters the run's characters killed since the base (last hits); `others`: `{ total, by_type, by: { <killer>: n } }`, the server's other kills (the game's fighting NPCs, e.g. Baron and Cunn; a killer is an NPC's name, a monster's type or `?`) |
 | `deaths` | `{ total, groups, recent }`: groups by character, map, ~100 px and killer (`{ name, map, x, y, by, n, first, last, level }`, at most 60), the last 10 (`{ name, level, map, x, y, by, t }`) |
 | `party` | section 5 |
@@ -183,6 +183,7 @@ merchant: { name, trips: [ { t_out, t_back, met, served } ], per_fighter: { <fig
 | `hp`, `mp`, `s`, `mode` | now: hp and mp, the condition keys on it (`character.s`, sorted), its CODE's `chronal.mode` (null: none, or not in game) |
 | `kills_by`, `last_kill` | its last hits by monster type since the base (`kills` = their sum); the last one's t (game s since the base; null: none) |
 | `role` | the setup's explicit role, else the CODE's `chronal.role`, else by class |
+| `outside` | `true` for a character of an account out of the totals (`accounts.<k>.totals` false); the roster's row has `totals: false` |
 | `log`, `log_n` | its game log's last 30 lines `[[v, kind, text]]` (`v` the world clock's ms; `kind` `"pageerror"` for a CODE's uncaught error and the game's code_error lines, `"console"` for its page's console errors and warnings, else `""`; `text` without HTML, at most 300 characters) and counts since the start `{ lines, errors, console }` (the single-thread Sim: no console, it goes to the run's stderr); null before its first line |
 | `code_status`, `modes_from` | the last status the CODE reported (`chronal.status`, a JSON tree; over 64 KB `{ truncated: true, bytes }`), null without one; `"chronal"` or null |
 
