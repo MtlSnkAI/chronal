@@ -7,12 +7,12 @@ import { ART, icon, iconFit, skIcon, mon, weaponOf, FF } from "./art.js";
 
 // ---- one character's totals over the measured part. Raw everywhere: every amount is what the server reported
 // (overkill and overheal included); overkill and overheal are their own numbers.
-// gold flows: in (>= 0) loot, sold, stand, received, other; out (>= 0) bought, craft, sent, other_out; banked =
-// deposits - withdrawals
+// gold flows: in (>= 0) loot, sold, stand, received, other; out (>= 0) bought (NPCs, bank packs), traded (stands, buy
+// orders), craft, sent, other_out; banked = deposits - withdrawals
 export const GOLD_IN = ["loot", "sold", "stand", "received", "other"];
 const flows = (g) => (g && typeof g === "object" ? g : null);
 // gold now minus at the base, less what the named flows explain (0 when the ledger closes); null without gold_start
-export const residual = (p, f) => (f && Number.isFinite(p.gold_start) && Number.isFinite(p.gold) ? p.gold - p.gold_start - GOLD_IN.reduce((a, k) => a + num(f[k]), 0) + ["bought", "craft", "sent", "other_out", "banked"].reduce((a, k) => a + num(f[k]), 0) : null);
+export const residual = (p, f) => (f && Number.isFinite(p.gold_start) && Number.isFinite(p.gold) ? p.gold - p.gold_start - GOLD_IN.reduce((a, k) => a + num(f[k]), 0) + ["bought", "traded", "craft", "sent", "other_out", "banked"].reduce((a, k) => a + num(f[k]), 0) : null);
 // potions drunk since the base: items.consumed
 export const potsOf = (p) => Object.fromEntries(Object.entries((p.items && p.items.consumed) || {}).filter(([k, v]) => /pot/.test(k) && Number.isFinite(v)));
 const rawOf = (o) => (o && typeof o === "object" && Number.isFinite(o.raw) ? o.raw : null);
@@ -24,7 +24,7 @@ function cstat(p) {
 	return { p, name: p.name, type: p.type, xp: p.xp_gained || 0, kills: p.kills || 0, credits: p.credits ?? null, deaths: p.deaths || 0, hp: p.hpots || 0, mp: p.mpots || 0,
 		dmg: rawOf(dn), overkill, taken: d ? rawOf(d.taken) : null, heal: rawOf(hd), overheal, ohBase, recv: hl ? rawOf(hl.received) : null,
 		hits: sk.reduce((a, e) => a + num(e.hits), 0), crits: sk.reduce((a, e) => a + num(e.crits), 0), misses: sk.reduce((a, e) => a + num(e.misses), 0), trips: p.trips || 0,
-		mana: p.mana ? p.mana.spent ?? null : null, combat: p.combat_ms != null ? p.combat_ms / 1000 : null, income: g ? num(g.loot) + num(g.sold) + num(g.stand) : null, spent: g ? num(g.bought) + num(g.craft) : null, g };
+		mana: p.mana ? p.mana.spent ?? null : null, combat: p.combat_ms != null ? p.combat_ms / 1000 : null, income: g ? num(g.loot) + num(g.sold) + num(g.stand) : null, spent: g ? num(g.bought) + num(g.traded) + num(g.craft) : null, g };
 }
 // supply handovers to each character (a finished trip with something or gold sent to it): per_fighter.deliveries
 function delivered(w) {

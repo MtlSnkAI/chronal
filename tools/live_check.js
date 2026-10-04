@@ -1,4 +1,4 @@
-// Reconciles a live snapshot (schema v2.2) with itself, its grid file and the server's own counters, and optionally
+// Reconciles a live snapshot (schema v2.4) with itself, its grid file and the server's own counters, and optionally
 // with a chronal run RESULT (--result). Exit 1 when a check fails.
 //   node tools/live_check.js live/<id>.json [RESULT.json] [--quiet]
 // Per character:
@@ -8,7 +8,7 @@
 //   heal:  net <= raw everywhere, overheal = raw - net >= 0, by_skill sums to done, received_by to received
 //   xp:    the server's player.t.xp since the base = xp_award (issue_monster_award deltas); xp_gained = xp_award -
 //          xp_lost + the rest (shown: merchant xp, bottles...)
-//   gold:  gold_start + loot + sold + stand + received + other - bought - craft - sent - other_out - banked = gold
+//   gold:  gold_start + loot + sold + stand + received + other - bought - traded - craft - sent - other_out - banked = gold
 //          (residual 0); loot = the server's player.t.cgold since the base
 //   items: items.held (what the character holds, by name, since the base) = looted + received + bought + mluck copies
 //          + crafted + exchange results + other gains - consumed - sent - sold - exchanged - lost upgrades - compounds (2 per success,
@@ -105,20 +105,22 @@ for (const p of s.players) {
 	(p.type === "merchant" ? info : (x) => ok(xpRest === 0, x))(`${n} xp gained = awards - death losses (rest ${xpRest})`);
 	// gold
 	const f = p.gold_flow,
-		expect = p.gold_start + f.loot + f.sold + f.stand + f.received + f.other - f.bought - f.craft - f.sent - f.other_out - f.banked;
+		expect = p.gold_start + f.loot + f.sold + f.stand + f.received + f.other - f.bought - (f.traded || 0) - f.craft - f.sent - f.other_out - f.banked;
 	ok(expect === p.gold, `${n} gold start + flows = now`, `residual ${p.gold - expect} (${JSON.stringify(f)})`);
 	ok(Object.entries(f).every(([k, x]) => k === "banked" || x >= 0), `${n} gold flows >= 0 (but banked)`);
 	if (p.server) ok(f.loot === p.server.cgold, `${n} loot gold = server t.cgold`, `${f.loot} vs ${p.server.cgold}`);
 	const it = p.items;
 	if (!it.held) info(`${n} items held = flows: skipped, the snapshot has no items.held`);
 	else {
-		const names = new Set([...Object.keys(it.held), ...Object.keys(it.looted), ...Object.keys(it.consumed), ...Object.keys(it.bought), ...Object.keys(it.sold), ...Object.keys(it.sent), ...Object.keys(it.received),
+		const sb = it.stand_bought || {},
+			ss = it.stand_sold || {};
+		const names = new Set([...Object.keys(it.held), ...Object.keys(it.looted), ...Object.keys(it.consumed), ...Object.keys(it.bought), ...Object.keys(it.sold), ...Object.keys(sb), ...Object.keys(ss), ...Object.keys(it.sent), ...Object.keys(it.received),
 				...Object.keys(it.mluck_dupes), ...Object.keys(it.crafted), ...Object.keys(it.from_exchange), ...Object.keys(it.other || {}), ...Object.keys(it.exchanged), ...Object.keys(it.upgraded), ...Object.keys(it.compounded)]);
 		const off = [];
 		for (const k of names) {
 			const c = it.compounded[k] || { ok: 0, fail: 0 };
-			const e = (it.looted[k] || 0) + sum(it.received[k]) + ((it.bought[k] && it.bought[k].q) || 0) + (it.mluck_dupes[k] || 0) + (it.crafted[k] || 0) + (it.from_exchange[k] || 0) + ((it.other || {})[k] || 0)
-				- (it.consumed[k] || 0) - sum(it.sent[k]) - ((it.sold[k] && it.sold[k].q) || 0) - (it.exchanged[k] || 0) - ((it.upgraded[k] && it.upgraded[k].lost) || 0) - 2 * c.ok - 3 * c.fail;
+			const e = (it.looted[k] || 0) + sum(it.received[k]) + ((it.bought[k] && it.bought[k].q) || 0) + ((sb[k] && sb[k].q) || 0) + (it.mluck_dupes[k] || 0) + (it.crafted[k] || 0) + (it.from_exchange[k] || 0) + ((it.other || {})[k] || 0)
+				- (it.consumed[k] || 0) - sum(it.sent[k]) - ((it.sold[k] && it.sold[k].q) || 0) - ((ss[k] && ss[k].q) || 0) - (it.exchanged[k] || 0) - ((it.upgraded[k] && it.upgraded[k].lost) || 0) - 2 * c.ok - 3 * c.fail;
 			if (e !== (it.held[k] || 0)) off.push(`${k} held ${it.held[k] || 0} flows ${e}`);
 		}
 		ok(!off.length, `${n} items held = flows (${names.size} items)`, off.join(", "));

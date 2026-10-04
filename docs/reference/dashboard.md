@@ -48,7 +48,8 @@ start. **Remove finished** moves every finished and stopped run to `live/removed
 - **Characters**: a sheet per character as the game shows it (HP, MP and XP bars, gear with the game's tooltips,
   conditions, stats; More,
   Inventory, Game log folds); with the replay shown they follow the replay's moment. Below, Items (from the run's
-  items' events): Upgraded, per item and step (+X -> +Y: succeeded, failed, lost) and each try; Looted, each loot
+  items' events): Upgraded, per item and step (+X -> +Y: succeeded, failed, lost) and each try; Traded, per item and
+  each sale at a stand or into a buy order (seller, buyer, price, tax); Looted, each loot
   (when, who, what).
 - **Data**: the headline tiles, then panels you compose in 1 to 4 columns (Add a panel, Columns, Defaults), the same
   on every run, group and Compare page and saved for the dashboard. A panel's grip drags it to another place (the

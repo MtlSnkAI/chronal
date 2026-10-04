@@ -1,10 +1,10 @@
-# Live snapshot schema v2.3
+# Live snapshot schema v2.4
 
 What a run writes into a live dir while it runs, and what the dashboard (`dashboard/server.js`) and
 `tools/live_check.js` read. `sim/live.js` writes it for every `chronal run` run (the live dir: `--live DIR`, else
 config `live_dir`; `--no-live`: none).
 
-A snapshot says `schema: 2, schema_minor: 3`. The input of a run, the run setup (`chronal-setup/1`), is described in
+A snapshot says `schema: 2, schema_minor: 4`. The input of a run, the run setup (`chronal-setup/1`), is described in
 docs/reference/setup.md; `chronal example` prints an annotated one.
 
 ## 1. Files in a live dir
@@ -59,7 +59,7 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `versions` | `{ sim, code, code_hash }`: git version of the simulator (`<commit>[+<diff hash>]`: the last commit of the files that change what a run does, and a hash of their uncommitted diff; `sim/`, `lib/` and `codes/` but `sim/g_data.js`, `lib/compose.js`, `lib/pull.js`, `lib/example.js` and `lib/install.js`), git version of the first character's CODE directory ("?" outside a repo; a run without a setup: null), hash over every character's CODE (section 9) |
 | `setup` | `{ format, file, name, from, hash }` (section 9); absent for runs without a setup |
 | `setup_key` | hash of what defines the run (section 9: the setup without its run knobs, name, strategy and notes, plus the simulator version; a run without a setup: null): runs of one setup with other seeds or durations share it |
-| `schema`, `schema_minor` | `2`, `3` |
+| `schema`, `schema_minor` | `2`, `4` |
 | `precision` | how each family was measured (below) |
 | `history_cols` | column names of the history rows (section 7) |
 | `roster` | the run's characters in run order (section 5) |
@@ -197,8 +197,8 @@ merchant: { name, trips: [ { t_out, t_back, met, served } ], per_fighter: { <fig
 | `dmg` | `done { raw, net }`; `by_skill { k: { raw, net, hits, crits, misses, casts } }`; `by_target { type: { raw, net, hits } }`; `taken { raw, net }`; `taken_by { cause: { raw, net, hits } }` (cause: monster type, player, `burn`, `dreturn`, `reflect`...; hits include fully absorbed ones); `taken_mp` (the mana shield's part); `avoided { miss, evade, avoid }`; `overkill` = done raw - net. Its own damage return counts as damage done (`dreturn`) |
 | `heal` | `done`, `by_skill` (with `casts`), `by_target`, `received`, `received_by { <healer's name> | <potion> | regen_hp | lifesteal: { raw, net, hits } }`, `overheal` = done raw - net |
 | `mana` | `spent`, `by_skill { skill: mp }`, `gained { pots, regen, steal, other }` (net) |
-| `items` | `looted`, `consumed` (drunk, used, craft inputs), `bought { i: { q, gold } }`, `sold { i: { q, gold } }`, `sent { i: { to: q } }`, `received { i: { from: q } }`, `upgraded { i: { ok, fail, lost } }`, `compounded { i: { ok, fail } }`, `exchanged` (inputs), `crafted`, `mluck_dupes` (the merchant's copies), `from_exchange`, `other` (other gains, e.g. market parcels) and `held` (what it holds now minus at the base, by name: bag, gear, stand, and the bank for the merchant) |
-| `gold_flow` | in: `loot`, `sold`, `stand`, `received`, `other`; out: `bought` (Ponty and bank packs included), `craft` (craft and dismantle), `sent`, `other_out`; `banked` = deposits - withdrawals. `gold - gold_start = loot + sold + stand + received + other - bought - craft - sent - other_out - banked` |
+| `items` | `looted`, `consumed` (drunk, used, craft inputs), `bought { i: { q, gold } }`, `sold { i: { q, gold } }` (NPCs), `stand_bought { i: { q, gold } }` (from a merchant's stand, or its own buy order filled), `stand_sold { i: { q, gold, tax } }` (at its stand, or into another's buy order; gold after tax), `sent { i: { to: q } }`, `received { i: { from: q } }`, `upgraded { i: { ok, fail, lost } }`, `compounded { i: { ok, fail } }`, `exchanged` (inputs), `crafted`, `mluck_dupes` (the merchant's copies), `from_exchange`, `other` (other gains, e.g. market parcels) and `held` (what it holds now minus at the base, by name: bag, gear, stand, and the bank for the merchant) |
+| `gold_flow` | in: `loot`, `sold`, `stand` (its sales to others, after tax), `received`, `other`; out: `bought` (NPCs: Ponty and bank packs included), `traded` (bought at stands, its buy orders filled), `craft` (craft and dismantle), `sent`, `other_out`; `banked` = deposits - withdrawals. `gold - gold_start = loot + sold + stand + received + other - bought - traded - craft - sent - other_out - banked` |
 | `income` | loot + sold + stand |
 | `chests` | `{ opened, dry, stale, gone }`: chests it opened; dry (opened from beyond 400 px) and stale (older than 8 min) pay with goldm 1; gone: already opened |
 | `gold_start`, `xp_award`, `xp_lost` | gold at the base; xp awarded by kills (level-ups inside); xp lost to deaths |
@@ -240,6 +240,9 @@ on, `t` measured s, `k` its kind, `who` the character:
 - `loot`: `item`, `level` (when it has one), `q`;
 - `upgrade`, `compound`: `item`, `from` and `to` (the levels tried), `ok`, `lost` (an upgrade's item gone);
 - `stat`: a stat scroll's: `item`, `stat`, `ok`;
+- `trade`: a sale at a merchant's stand (`via: "stand"`, trade_buy) or into a buy order (`via: "wish"`, trade_sell):
+  `who` the seller, `to` the buyer, `item`, `level`, `stat_type`, `q`, `price` (before the seller's tax), `tax`; one
+  per trade where either side is the run's;
 - `shiny`: an ingot's or a nugget's roll on an item with no scroll (its level stays): `item`, `level`, `offering`, `ok`
   (shiny);
 - `give`: a handover: `to`, `item`, `level`, `q`; `gold`: `to`, `amount`.

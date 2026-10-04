@@ -62,7 +62,7 @@ const COMBAT_MS = 3000, TRIPS = 50;
 const BANK_PACK = 42; // slots in a bank pack
 const ROLE = { merchant: "merchant", priest: "healer", warrior: "tank", paladin: "tank" };
 // requests whose add_item() is counted elsewhere (buy/craft: the response, send: the history) or only moves an item
-const MOVED = new Set(["buy", "send", "craft", "exchange", "unequip", "equip", "bank", "swap", "split"]);
+const MOVED = new Set(["buy", "send", "craft", "exchange", "unequip", "equip", "bank", "swap", "split", "trade_buy", "trade_sell"]);
 // conditions: intervals less than GAP_MS apart are one; the timeline has every key, TL_KEY_CAP closed rows per key and
 // TL_CAP per character
 const GAP_MS = 1000, TL_CAP = 200, TL_KEY_CAP = 40;
@@ -244,8 +244,8 @@ function metrics(p, census) {
 		dmg: { done: amount(), by_skill: {}, by_target: {}, taken: amount(), taken_by: {}, taken_mp: 0, avoided: { miss: 0, evade: 0, avoid: 0 } },
 		heal: { done: amount(), by_skill: {}, by_target: {}, received: amount(), received_by: {} },
 		mana: { spent: 0, by_skill: {}, gained: { pots: 0, regen: 0, steal: 0, other: 0 } },
-		items: { looted: {}, consumed: {}, bought: {}, sold: {}, sent: {}, received: {}, upgraded: {}, compounded: {}, exchanged: {}, crafted: {}, mluck_dupes: {}, from_exchange: {}, other: {} },
-		gold_flow: { loot: 0, sold: 0, stand: 0, received: 0, other: 0, bought: 0, craft: 0, sent: 0, other_out: 0, banked: 0 },
+		items: { looted: {}, consumed: {}, bought: {}, sold: {}, stand_bought: {}, stand_sold: {}, sent: {}, received: {}, upgraded: {}, compounded: {}, exchanged: {}, crafted: {}, mluck_dupes: {}, from_exchange: {}, other: {} },
+		gold_flow: { loot: 0, sold: 0, stand: 0, received: 0, other: 0, bought: 0, traded: 0, craft: 0, sent: 0, other_out: 0, banked: 0 },
 		chests: { opened: 0, dry: 0, stale: 0, gone: 0 },
 		casts: {}, credits: 0, xp_award: 0, xp_lost: 0, party_xp: 0, loot_items: 0, lastc: -Infinity,
 		// time: alive, in combat, in a party, sampled (sums of the intervals between samples, by what was true at the first)
@@ -722,6 +722,17 @@ class Live {
 				} catch (e) {}
 				return r;
 			});
+		// a merchant's stand sale (trade_buy) or a buy order filled (trade_sell): the server records it on both sides
+		// (add_to_trade_history, the seller's "sell" then the buyer's "buy"), the price before the seller's tax
+		hook("add_to_trade_history", (orig) =>
+			function (player, event, name, item, price) {
+				const r = orig.apply(this, arguments);
+				try {
+					const q = live.req;
+					if (q && (q.method === "trade_buy" || q.method === "trade_sell") && player && item) live.traded(player, event, name, item, price, q.method === "trade_sell" ? "wish" : "stand");
+				} catch (e) {}
+				return r;
+			});
 		hook("add_to_history", (orig) =>
 			function (player, event) {
 				const r = orig.apply(this, arguments);
@@ -750,6 +761,24 @@ class Live {
 				}
 			});
 		this.G = G;
+	}
+	// a trade's side (seller "sell", buyer "buy"): the items' ledgers of ours, an items' event per trade (from its sale)
+	traded(player, event, other, item, price, via) {
+		const q = item.q || 1,
+			m = this.mx[player.name],
+			om = this.mx[other];
+		if (event === "sell") {
+			const net = Math.round(price * (1 - (player.tax || 0))),
+				tax = price - net;
+			if (m) {
+				const s = m.items.stand_sold[item.name] || (m.items.stand_sold[item.name] = { q: 0, gold: 0, tax: 0 });
+				(s.q += q), (s.gold += net), (s.tax += tax);
+			}
+			if (m || om) this.itemEvent({ k: "trade", who: player.name, to: other, item: item.name, ...(item.level ? { level: item.level } : {}), ...(item.stat_type ? { stat_type: item.stat_type } : {}), q, price, tax, via });
+		} else if (event === "buy" && m) {
+			const b = m.items.stand_bought[item.name] || (m.items.stand_bought[item.name] = { q: 0, gold: 0 });
+			(b.q += q), (b.gold += price);
+		}
 	}
 	push(a, info) {
 		if (!this.base || !a) return false;
@@ -1029,7 +1058,7 @@ class Live {
 				case "sell": d > 0 ? (f.sold += d) : (f.other_out -= d); break;
 				case "buy": case "sbuy": d < 0 ? (f.bought -= d) : (f.other += d); break;
 				case "send": d < 0 ? (f.sent -= d) : (f.received += d); break;
-				case "trade_buy": case "trade_sell": d > 0 ? (f.stand += d) : (f.bought -= d); break;
+				case "trade_buy": case "trade_sell": d > 0 ? (f.stand += d) : (f.traded -= d); break;
 				case "craft": case "dismantle": d < 0 ? (f.craft -= d) : (f.other += d); break;
 				case "bank":
 					// a bank pack bought with gold is spent; deposits (+) and withdrawals (-) are banked
@@ -1783,7 +1812,7 @@ class Live {
 		const coarse = this.coarse,
 			gr = this.grid;
 		const out = {
-			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 3,
+			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 4,
 			precision: { dmg_done: "net", dmg_taken: "net", heal: "net", overkill: "exact", overheal: "exact", items: "exact", gold: "exact", gold_other: "exact", mana_by_skill: "exact",
 				sample_ms: coarse ? null : SAMPLE_MS, modes: coarse ? "coarse" : "exact", grid: coarse ? null : "exact", attrib: coarse ? null : "exact" },
 			history_cols: HISTORY_COLS, roster,
