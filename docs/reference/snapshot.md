@@ -1,10 +1,10 @@
-# Live snapshot schema v2.5
+# Live snapshot schema v2.6
 
 What a run writes into a live dir while it runs, and what the dashboard (`dashboard/server.js`) and
 `tools/live_check.js` read. `sim/live.js` writes it for every `chronal run` run (the live dir: `--live DIR`, else
 config `live_dir`; `--no-live`: none).
 
-A snapshot says `schema: 2, schema_minor: 5`. The input of a run, the run setup (`chronal-setup/1`), is described in
+A snapshot says `schema: 2, schema_minor: 6`. The input of a run, the run setup (`chronal-setup/1`), is described in
 docs/reference/setup.md; `chronal example` prints an annotated one.
 
 ## 1. Files in a live dir
@@ -59,7 +59,7 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `versions` | `{ sim, code, code_hash }`: git version of the simulator (`<commit>[+<diff hash>]`: the last commit of the files that change what a run does, and a hash of their uncommitted diff; `sim/`, `lib/` and `codes/` but `sim/g_data.js`, `lib/compose.js`, `lib/pull.js`, `lib/example.js` and `lib/install.js`), git version of the first character's CODE directory ("?" outside a repo; a run without a setup: null), hash over every character's CODE (section 9) |
 | `setup` | `{ format, file, name, from, hash }` (section 9); absent for runs without a setup |
 | `setup_key` | hash of what defines the run (section 9: the setup without its run knobs, name, strategy and notes, plus the simulator version; a run without a setup: null): runs of one setup with other seeds or durations share it |
-| `schema`, `schema_minor` | `2`, `5` |
+| `schema`, `schema_minor` | `2`, `6` |
 | `precision` | how each family was measured (below) |
 | `history_cols` | column names of the history rows (section 7) |
 | `roster` | the run's characters in run order (section 5) |
@@ -199,8 +199,8 @@ merchant: { name, trips: [ { t_out, t_back, met, served } ], per_fighter: { <fig
 | `heal` | `done`, `by_skill` (with `casts`), `by_target`, `received`, `received_by { <healer's name> | <potion> | regen_hp | lifesteal: { raw, net, hits } }`, `overheal` = done raw - net |
 | `mana` | `spent`, `by_skill { skill: mp }`, `gained { pots, regen, steal, other }` (net) |
 | `items` | `looted`, `consumed` (drunk, used, craft inputs), `bought { i: { q, gold } }`, `sold { i: { q, gold } }` (NPCs), `stand_bought { i: { q, gold } }` (from a merchant's stand, or its own buy order filled), `stand_sold { i: { q, gold, tax } }` (at its stand, or into another's buy order; gold after tax), `sent { i: { to: q } }`, `received { i: { from: q } }`, `upgraded { i: { ok, fail, lost } }`, `compounded { i: { ok, fail } }`, `exchanged` (inputs), `crafted`, `mluck_dupes` (the merchant's copies), `from_exchange`, `other` (other gains, e.g. market parcels) and `held` (what it holds now minus at the base, by name: bag, gear, stand, and the bank for the merchant) |
-| `gold_flow` | in: `loot`, `sold`, `stand` (its sales to others, after tax), `received`, `other`; out: `bought` (NPCs: Ponty and bank packs included), `traded` (bought at stands, its buy orders filled), `craft` (craft and dismantle), `sent`, `other_out`; `banked` = deposits - withdrawals. `gold - gold_start = loot + sold + stand + received + other - bought - traded - craft - sent - other_out - banked` |
-| `income` | loot + sold + stand |
+| `gold_flow` | in: `chest` (a chest's own gold: its gold x goldm x share, after tax), `egold` (the monster's egold, its share), `enc` (encouragement receipts: New Player's, Lone Wolf's gold), `sold`, `stand` (its sales to others, after tax), `received`, `other`; out: `bought` (NPCs: Ponty and bank packs included), `traded` (bought at stands, its buy orders filled), `craft` (craft and dismantle), `sent`, `other_out`; `banked` = deposits - withdrawals. `gold - gold_start = chest + egold + enc + sold + stand + received + other - bought - traded - craft - sent - other_out - banked`; `chest + egold + enc` = the server's `t.cgold` (the chest's tax split between its two parts by their shares) |
+| `income` | chest + egold + enc + sold + stand |
 | `chests` | `{ opened, dry, stale, gone }`: chests it opened; dry (opened from beyond 400 px) and stale (older than 8 min) pay with goldm 1; gone: already opened |
 | `gold_start`, `xp_award`, `xp_lost` | gold at the base; xp awarded by kills (level-ups inside); xp lost to deaths |
 | `modes` | `{ mode: ms }`: time per CODE mode (`chronal.mode`), each rounded to the ms, their sum at most `measured_ms`; null for a CODE that reports none |
@@ -325,7 +325,7 @@ Every `chronal run` run runs a setup and writes, beside `<id>.json`:
 ## 12. Checking a snapshot
 
 `node tools/live_check.js <dir>/<id>.json [RESULT.json]` reconciles a sim snapshot: damage net = the server's
-`mdamage`, loot gold = its `cgold`, xp awards = its `xp`, the gold identity, held items = the item flows (skipped with
+`mdamage`, chest + egold + enc gold = its `cgold`, xp awards = its `xp`, the gold identity, held items = the item flows (skipped with
 a note without `items.held`), by-skill and by-target sums, net <= raw, time counters <= measured, `on` against the
 totals, Angel's gold, the timeline against `conditions`, the grid (its last row = the snapshot), history, party sums,
 run control, `world.age_ms` and `world.mlevels` (their shape; base once measured, end once

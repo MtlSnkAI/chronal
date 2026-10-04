@@ -1,5 +1,5 @@
 "use strict";
-// Fixture snapshots for dashboard/server.js in the live schema v2.2 (docs/reference/snapshot.md), from a toy
+// Fixture snapshots for dashboard/server.js in the live schema v2.6 (docs/reference/snapshot.md), from a toy
 // fight model stepped in game time, so every ledger adds up: by_skill and by_target sum to done, party.history is the
 // fighters' sums, each history row and grid row is the ledgers at its time (the last one = the totals), what the
 // merchant sent is what the fighters received, every character's gold closes the gold identity. Kane and Angel walk a
@@ -141,14 +141,14 @@ function ledger(name, type, level, rnd) {
 		heal: { done: { raw: 0, net: 0 }, by_skill: {}, by_target: {}, received: { raw: 0, net: 0 }, received_by: {}, overheal: 0 },
 		mana: { spent: 0, by_skill: {}, gained: { pots: 0, regen: 0, steal: 0, other: 0 } },
 		items: { looted: {}, consumed: {}, bought: {}, sold: {}, sent: {}, received: {}, upgraded: {}, compounded: {}, exchanged: {}, from_exchange: {}, crafted: {}, mluck_dupes: {} },
-		gold_flow: { loot: 0, sold: 0, stand: 0, received: 0, other: 0, bought: 0, craft: 0, sent: 0, other_out: 0, banked: 0 },
+		gold_flow: { chest: 0, egold: 0, enc: 0, sold: 0, stand: 0, received: 0, other: 0, bought: 0, traded: 0, craft: 0, sent: 0, other_out: 0, banked: 0 },
 		gold_start: type === "merchant" ? 12e6 : 250e3,
 		chests: { opened: 0, dry: 0, stale: 0, gone: 0 }, alive_ms: 0, combat_ms: 0, party_ms: 0, modes: {}, since: { used: {}, looted: {}, gold: 0 }, owed: {}, history: [],
 		cond: {}, open: {}, rows: [], on: {}, mult: { xpm: 0, goldm: 0, luckm: 0, enc_xp: 0, enc_gold: 0, enc_luck: 0 }, keys: {}, pos: null, map: null, angel: { gold: 0, chests: 0, kills: 0 },
 	};
 }
-const income = (c) => c.gold_flow.loot + c.gold_flow.sold + c.gold_flow.stand;
-const goldNow = (c) => { const g = c.gold_flow; return c.gold_start + g.loot + g.sold + g.stand + g.received + g.other - g.bought - g.craft - g.sent - g.other_out - g.banked; };
+const income = (c) => c.gold_flow.chest + c.gold_flow.egold + c.gold_flow.enc + c.gold_flow.sold + c.gold_flow.stand;
+const goldNow = (c) => { const g = c.gold_flow; return c.gold_start + g.chest + g.egold + g.enc + g.sold + g.stand + g.received + g.other - g.bought - g.traded - g.craft - g.sent - g.other_out - g.banked; };
 const looted = (c) => Object.values(c.items.looted).reduce((a, b) => a + b, 0);
 // history: dmg / heal net, their raw beside, taken raw at the end
 const row = (c, t, trips) => [t, c.level, c.xp, c.hp, c.mp, c.kills, c.deaths, c.dmg.done.net, c.dmg.taken.net, c.heal.done.net, income(c), trips, c.dmg.done.raw, c.heal.done.raw, c.dmg.taken.raw];
@@ -398,7 +398,7 @@ function generate(run, until = run.hours * 3600) {
 				let paid = 0, angel = 0;
 				for (const f of party ? F : [killer]) {
 					const gi = Math.round(g0 * share * goldm);
-					(f.gold_flow.loot += gi), (f.since.gold += gi), (paid += gi);
+					(f.gold_flow.chest += gi - Math.round(gi / 6)), (f.gold_flow.egold += Math.round(gi / 6)), (f.since.gold += gi), (paid += gi); // (a sixth: the monster's egold)
 					if (!dry && opener.keys.citizen4aura) angel += gi - Math.round(g0 * share * (goldm - 2));
 				}
 				onAdd(opener, "chests", 1), onAdd(opener, "loot_gold", paid);
@@ -573,7 +573,7 @@ function snapshot(run, until, { F, M, trips, perF, deaths, killed, partyH, grid,
 		deaths: { total: deaths.length, groups: [...groups.values()], recent: deaths.slice(-10) },
 		players, notes: {},
 		world: { clock: V0 + measured, globals: { goldm: 1, luckm: 1, xpm: 1 }, ...worldOf(run, until, !run.running) },
-		schema: 2, schema_minor: 2,
+		schema: 2, schema_minor: 6,
 		precision: { dmg_done: "net", dmg_taken: "net", heal: "net", items: "exact", gold: "exact", gold_other: "exact", mana_by_skill: "exact", sample_ms: 250, modes: "exact", grid: "exact", attrib: "exact", overkill: "exact", overheal: "exact" },
 		history_cols: HISTORY_COLS,
 		roster,
@@ -663,7 +663,7 @@ function check(w) {
 		eq(vals(p.heal.received_by, "net"), p.heal.received.net, p.name + " received_by");
 		eq(vals(p.heal.by_target, "raw"), p.heal.done.raw, p.name + " heal by_target");
 		const g = p.gold_flow;
-		eq(p.gold - p.gold_start, g.loot + g.sold + g.stand + g.received + g.other - g.bought - g.craft - g.sent - g.other_out - g.banked, p.name + " gold identity");
+		eq(p.gold - p.gold_start, g.chest + g.egold + g.enc + g.sold + g.stand + g.received + g.other - g.bought - g.traded - g.craft - g.sent - g.other_out - g.banked, p.name + " gold identity");
 		const h = p.history[p.history.length - 1];
 		eq(h[2], p.xp_gained, p.name + " history xp");
 		eq(h[3] + h[4], p.hpots + p.mpots, p.name + " history pots");

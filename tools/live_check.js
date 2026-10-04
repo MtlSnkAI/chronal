@@ -1,4 +1,4 @@
-// Reconciles a live snapshot (schema v2.5) with itself, its grid file and the server's own counters, and optionally
+// Reconciles a live snapshot (schema v2.6) with itself, its grid file and the server's own counters, and optionally
 // with a chronal run RESULT (--result). Exit 1 when a check fails.
 //   node tools/live_check.js live/<id>.json [RESULT.json] [--quiet]
 // Per character:
@@ -8,8 +8,8 @@
 //   heal:  net <= raw everywhere, overheal = raw - net >= 0, by_skill sums to done, received_by to received
 //   xp:    the server's player.t.xp since the base = xp_award (issue_monster_award deltas); xp_gained = xp_award -
 //          xp_lost + the rest (shown: merchant xp, bottles...)
-//   gold:  gold_start + loot + sold + stand + received + other - bought - traded - craft - sent - other_out - banked = gold
-//          (residual 0); loot = the server's player.t.cgold since the base
+//   gold:  gold_start + chest + egold + enc + sold + stand + received + other - bought - traded - craft - sent - other_out
+//          - banked = gold (residual 0); chest + egold + enc = the server's player.t.cgold since the base
 //   items: items.held (what the character holds, by name, since the base) = looted + received + bought + mluck copies
 //          + crafted + exchange results + other gains - consumed - sent - sold - exchanged - lost upgrades - compounds (2 per success,
 //          3 per failure; one in progress counts as what comes back); a dismantle shows up as a difference; a snapshot
@@ -105,10 +105,11 @@ for (const p of s.players) {
 	(p.type === "merchant" ? info : (x) => ok(xpRest === 0, x))(`${n} xp gained = awards - death losses (rest ${xpRest})`);
 	// gold
 	const f = p.gold_flow,
-		expect = p.gold_start + f.loot + f.sold + f.stand + f.received + f.other - f.bought - (f.traded || 0) - f.craft - f.sent - f.other_out - f.banked;
+		loot = f.chest + f.egold + f.enc,
+		expect = p.gold_start + loot + f.sold + f.stand + f.received + f.other - f.bought - f.traded - f.craft - f.sent - f.other_out - f.banked;
 	ok(expect === p.gold, `${n} gold start + flows = now`, `residual ${p.gold - expect} (${JSON.stringify(f)})`);
 	ok(Object.entries(f).every(([k, x]) => k === "banked" || x >= 0), `${n} gold flows >= 0 (but banked)`);
-	if (p.server) ok(f.loot === p.server.cgold, `${n} loot gold = server t.cgold`, `${f.loot} vs ${p.server.cgold}`);
+	if (p.server) ok(loot === p.server.cgold, `${n} chest + egold + enc gold = server t.cgold`, `${loot} vs ${p.server.cgold}`);
 	const it = p.items;
 	if (!it.held) info(`${n} items held = flows: skipped, the snapshot has no items.held`);
 	else {

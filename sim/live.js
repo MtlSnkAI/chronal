@@ -245,7 +245,7 @@ function metrics(p, census) {
 		heal: { done: amount(), by_skill: {}, by_target: {}, received: amount(), received_by: {} },
 		mana: { spent: 0, by_skill: {}, gained: { pots: 0, regen: 0, steal: 0, other: 0 } },
 		items: { looted: {}, consumed: {}, bought: {}, sold: {}, stand_bought: {}, stand_sold: {}, sent: {}, received: {}, upgraded: {}, compounded: {}, exchanged: {}, crafted: {}, mluck_dupes: {}, from_exchange: {}, other: {} },
-		gold_flow: { loot: 0, sold: 0, stand: 0, received: 0, other: 0, bought: 0, traded: 0, craft: 0, sent: 0, other_out: 0, banked: 0 },
+		gold_flow: { chest: 0, egold: 0, enc: 0, sold: 0, stand: 0, received: 0, other: 0, bought: 0, traded: 0, craft: 0, sent: 0, other_out: 0, banked: 0 },
 		chests: { opened: 0, dry: 0, stale: 0, gone: 0 },
 		casts: {}, credits: 0, xp_award: 0, xp_lost: 0, party_xp: 0, loot_items: 0, lastc: -Infinity,
 		// time: alive, in combat, in a party, sampled (sums of the intervals between samples, by what was true at the first)
@@ -1032,27 +1032,44 @@ class Live {
 	}
 	lootPre(S, chest, goldm) {
 		const r = this.req;
-		if (!r || !r.aura || !r.chest || r.chest.forced || !chest) return null;
+		if (!r || !r.chest || !chest) return null;
 		const list = [];
 		for (const rc of chest.encouragement || []) {
 			const q = S.players[S.name_to_id[rc.name]];
 			if (q) list.push([rc, q, q.gold]);
 		}
-		return { r, list, eg: chest.encouragement_gold || 0, egold: chest.egold || 0, goldm };
+		return { r, list, eg: chest.encouragement_gold || 0, egold: chest.egold || 0, goldm, angel: !!r.aura && !r.chest.forced };
 	}
-	// each paid receipt: the server's formula at goldm and at goldm without Angel (paid = the formula, else unmatched)
-	lootPost({ r, list, eg, egold, goldm }) {
+	// each paid receipt (the chest's encouragement gold for a character: what it got during the call); with Angel's
+	// aura on the opener, the server's formula at goldm and at goldm without Angel (paid = the formula, else unmatched)
+	lootPost({ r, list, eg, egold, goldm, angel }) {
 		for (const [rc, q, g0] of list) {
 			const paid = q.gold - g0;
 			if (!paid) continue; // not paid now (gone, or kept in a reserved chest)
+			(r.enc ||= new Map()).set(q, (r.enc.get(q) || 0) + paid);
+			if (!angel) continue;
 			const g = tax(Math.floor((eg * goldm + egold) * rc.gold));
 			if (g !== paid) {
 				r.bad = true;
 				continue;
 			}
-			(r.enc ||= new Map()).set(q, (r.enc.get(q) || 0) + paid);
 			r.extra = (r.extra || 0) + g - tax(Math.floor((eg * (goldm - r.aura) + egold) * rc.gold));
 		}
+	}
+	// a chest's gold for one of ours (d, after tax): its encouragement receipts (measured), the rest the chest's payout,
+	// tax(round(gold x share x goldm) + round(egold x share)): split between the chest's gold and the monster's egold by
+	// their shares before tax (the parts sum to d)
+	chestGold(r, q, d, f) {
+		const enc = Math.min(d, (r.enc && r.enc.get(q)) || 0),
+			rest = d - enc,
+			obj = r.chest && r.chest.obj,
+			p = r.p,
+			sh = p.party ? q.share || 0 : 1,
+			E = obj ? Math.round((obj.egold || 0) * sh) : 0;
+		let T = Math.round(rest / 0.9);
+		for (const t of [T, T - 1, T + 1]) if (tax(t) === rest) T = t;
+		const eg = T > 0 ? Math.min(rest, Math.round((rest * Math.min(E, T)) / T)) : 0;
+		(f.enc += enc), (f.egold += eg), (f.chest += rest - eg);
 	}
 	/** After a request's handler: gold of every character by method, potions/regen, chest opens, upgrade rolls. */
 	closeReq() {
@@ -1067,7 +1084,7 @@ class Live {
 			if (!d || !qm) continue;
 			const f = qm.gold_flow;
 			switch (r.method) {
-				case "open_chest": d > 0 ? (f.loot += d) : (f.other_out -= d); break;
+				case "open_chest": d > 0 ? this.chestGold(r, q, d, f) : (f.other_out -= d); break;
 				case "sell": d > 0 ? (f.sold += d) : (f.other_out -= d); break;
 				case "buy": case "sbuy": d < 0 ? (f.bought -= d) : (f.other += d); break;
 				case "send": d < 0 ? (f.sent -= d) : (f.received += d); break;
@@ -1543,7 +1560,7 @@ class Live {
 			f = m.gold_flow,
 			cm = (k) => (m.cond[k] ? m.cond[k].ms : 0);
 		return [p.level, c.xp - s0.xp, c.kills - s0.kills, m.credits, c.deaths - s0.deaths, m.dmg.done.net, m.dmg.done.raw, m.dmg.taken.net, m.heal.done.net, m.heal.done.raw,
-			f.loot + f.sold + f.stand, m.loot_items, c.hp - s0.hp, c.mp - s0.mp, m.mana.spent, (p.gold || 0) - m.gold0, m.alive_ms, m.combat_ms, m.party_ms,
+			f.chest + f.egold + f.enc + f.sold + f.stand, m.loot_items, c.hp - s0.hp, c.mp - s0.mp, m.mana.spent, (p.gold || 0) - m.gold0, m.alive_ms, m.combat_ms, m.party_ms,
 			cm("citizen0aura"), cm("citizen4aura"), cm("mluck"), cm("encouragement_lonewolf"), cm("party"), m.exact.angel_gold, m.dmg.taken.raw];
 	}
 	// over GRID_MAX: keep every other line older than the newest GRID_KEEP_MS (rows are cumulative: only resolution goes)
@@ -1750,7 +1767,7 @@ class Live {
 			for (const k of Object.keys(c)) d[k] = c[k] - s0[k];
 			const m = this.mx[p.name];
 			const f = m && m.gold_flow,
-				income = m ? f.loot + f.sold + f.stand : 0;
+				income = m ? f.chest + f.egold + f.enc + f.sold + f.stand : 0;
 			if (base) {
 				rows[p.name] = [t, p.level, d.xp, d.hp, d.mp, d.kills, d.deaths, m ? m.dmg.done.net : 0, m ? m.dmg.taken.net : 0, m ? m.heal.done.net : 0, income, d.trips,
 					m ? m.dmg.done.raw : 0, m ? m.heal.done.raw : 0, m ? m.dmg.taken.raw : 0];
@@ -1844,7 +1861,7 @@ class Live {
 		const coarse = this.coarse,
 			gr = this.grid;
 		const out = {
-			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 5,
+			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 6,
 			precision: { dmg_done: "net", dmg_taken: "net", heal: "net", overkill: "exact", overheal: "exact", items: "exact", gold: "exact", gold_other: "exact", mana_by_skill: "exact",
 				sample_ms: coarse ? null : SAMPLE_MS, modes: coarse ? "coarse" : "exact", grid: coarse ? null : "exact", attrib: coarse ? null : "exact" },
 			history_cols: HISTORY_COLS, roster,
