@@ -258,6 +258,7 @@ function metrics(p, census) {
 	};
 }
 
+const r4 = (x) => (Number.isFinite(x) ? Math.round(x * 1e4) / 1e4 : null);
 // sockets of which sim have a Live (requests are closed after their handler: ServerSocket._packet)
 const LIVES = new Map();
 let patched = false;
@@ -1007,6 +1008,16 @@ class Live {
 		const m = player && this.mx[player.name];
 		if (!m) return;
 		const r = (this.req = { p: player, m, method, data, hp: player.hp, mp: player.mp, ours: this.ours, g: this.ours.map(([q]) => q.gold || 0), pot: null, used: null, chest: null, qu: player.q && player.q.upgrade, qc: player.q && player.q.compound });
+		// an upgrade's or a compound's grace before its roll (the handler moves it): the item's (the three items' summed),
+		// the character's and the server's per level, the offering grace
+		try {
+			if (method === "upgrade" && data) {
+				const it = player.items[data.item_num],
+					lv = ((it && it.level) || 0) + 1;
+				if (it) r.grace0 = { grace: it.grace || 0, ug: [(player.p.ugrace || [])[lv] ?? null, ((S.S && S.S.ugrace) || [])[lv] ?? null], og: player.p.ograce || 0 };
+			} else if (method === "compound" && data && Array.isArray(data.items))
+				r.grace0 = { grace: data.items.reduce((a, n) => a + ((player.items[n] && player.items[n].grace) || 0), 0), og: player.p.ograce || 0 };
+		} catch (e) {}
 		if (method === "open_chest") {
 			const ch = S.chests[data && data.id];
 			if (!ch) return void (r.chest = false);
@@ -1081,23 +1092,28 @@ class Live {
 			const it = p.p.u_item || p.p.u_itemx,
 				ph = p.items && p.items[p.q.upgrade.num];
 			// an ingot or a nugget with no scroll: a roll to make the item shiny, its level unchanged (not an upgrade)
+			// the roll: its scroll and offering, the chance it had (grace in) and the roll (a success: roll <= chance)
+			const roll = ph && ph.name === "placeholder" && ph.p ? { scroll: ph.p.scroll, ...(ph.p.offering ? { offering: ph.p.offering } : {}), chance: r4(ph.p.chance), roll: r4(p.p.u_roll), ...(r.grace0 || {}) } : {};
 			if (it && ph && ph.name === "placeholder" && ph.p && ph.p.scroll === null && ph.p.offering)
-				this.itemEvent({ k: "shiny", who: p.name, item: it.name, level: it.level || 0, offering: ph.p.offering, ok: !p.p.u_fail });
+				this.itemEvent({ k: "shiny", who: p.name, item: it.name, level: it.level || 0, offering: ph.p.offering, ok: !p.p.u_fail, chance: roll.chance, roll: roll.roll });
 			else if (it) {
 				const u = m.items.upgraded[it.name] || (m.items.upgraded[it.name] = { ok: 0, fail: 0, lost: 0 }), ok = !!p.p.u_item && !p.p.u_fail, lv = it.level || 0;
 				ok ? u.ok++ : u.fail++;
 				if (!p.p.u_item) u.lost++;
 				// (a success holds the new level, a failure the one it had)
-				if (p.p.u_type === "stat") this.itemEvent({ k: "stat", who: p.name, item: it.name, stat: it.stat_type || null, ok });
-				else this.itemEvent({ k: "upgrade", who: p.name, item: it.name, from: ok ? lv - 1 : lv, to: ok ? lv : lv + 1, ok, ...(p.p.u_item ? {} : { lost: true }) });
+				const from = Number.isFinite(p.p.u_level) ? p.p.u_level : ok ? lv - 1 : lv;
+				if (p.p.u_type === "stat") this.itemEvent({ k: "stat", who: p.name, item: it.name, stat: it.stat_type || null, ok, ...(roll.scroll ? { scroll: roll.scroll } : {}) });
+				else this.itemEvent({ k: "upgrade", who: p.name, item: it.name, from, to: from + 1, ok, ...(p.p.u_item ? {} : { lost: true }), ...roll });
 			}
 		}
 		if (r.method === "compound" && p.q && p.q.compound && p.q.compound !== r.qc && p.p) {
-			const it = p.p.c_item || p.p.c_itemx;
+			const it = p.p.c_item || p.p.c_itemx,
+				ph = p.items && p.items[p.q.compound.num],
+				roll = ph && ph.name === "placeholder" && ph.p ? { scroll: ph.p.scroll, ...(ph.p.offering ? { offering: ph.p.offering } : {}), chance: r4(ph.p.chance), roll: r4(p.p.c_roll), ...(r.grace0 || {}) } : {};
 			if (it) {
 				const u = m.items.compounded[it.name] || (m.items.compounded[it.name] = { ok: 0, fail: 0 }), ok = !!p.p.c_item, lv = it.level || 0;
 				ok ? u.ok++ : u.fail++;
-				this.itemEvent({ k: "compound", who: p.name, item: it.name, from: ok ? lv - 1 : lv, to: ok ? lv : lv + 1, ok });
+				this.itemEvent({ k: "compound", who: p.name, item: it.name, from: ok ? lv - 1 : lv, to: ok ? lv : lv + 1, ok, ...roll });
 			}
 		}
 		if (r.chest) {

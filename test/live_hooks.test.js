@@ -38,14 +38,14 @@ test("upgrade events: an ingot's roll with no scroll is a shiny event at the ite
 			Live.prototype.closeReq.call({ req: { p, m, method: "upgrade", ours: [], g: [], qu: null, pot: null, used: null }, sim: { server: {} }, G: { skills: {} }, itemEvent: (e) => events.push(e) });
 			return m;
 		};
-	const ph = (scroll, offering) => [{ name: "placeholder", p: { scroll, offering, name: "blade", level: 3 } }];
-	const shiny = run({ name: "M", q: { upgrade: { num: 0 } }, items: ph(null, "goldingot"), p: { u_type: "normal", u_item: { name: "blade", level: 3, p: "shiny" } } });
-	run({ name: "M", q: { upgrade: { num: 0 } }, items: ph(null, "goldnugget"), p: { u_type: "normal", u_item: { name: "blade", level: 3 }, u_fail: true } });
-	run({ name: "M", q: { upgrade: { num: 0 } }, items: ph("scroll0", null), p: { u_type: "normal", u_item: { name: "blade", level: 4 } } });
+	const ph = (scroll, offering, chance) => [{ name: "placeholder", p: { scroll, offering, name: "blade", level: 3, chance } }];
+	const shiny = run({ name: "M", q: { upgrade: { num: 0 } }, items: ph(null, "goldingot", 0.32), p: { u_type: "normal", u_roll: 0.1, u_item: { name: "blade", level: 3, p: "shiny" } } });
+	run({ name: "M", q: { upgrade: { num: 0 } }, items: ph(null, "goldnugget", 0.16), p: { u_type: "normal", u_roll: 0.5, u_item: { name: "blade", level: 3 }, u_fail: true } });
+	run({ name: "M", q: { upgrade: { num: 0 } }, items: ph("scroll0", null, 0.912345), p: { u_type: "normal", u_roll: 0.123456, u_level: 3, u_item: { name: "blade", level: 4 } } });
 	assert.deepEqual(events, [
-		{ k: "shiny", who: "M", item: "blade", level: 3, offering: "goldingot", ok: true },
-		{ k: "shiny", who: "M", item: "blade", level: 3, offering: "goldnugget", ok: false },
-		{ k: "upgrade", who: "M", item: "blade", from: 3, to: 4, ok: true },
+		{ k: "shiny", who: "M", item: "blade", level: 3, offering: "goldingot", ok: true, chance: 0.32, roll: 0.1 },
+		{ k: "shiny", who: "M", item: "blade", level: 3, offering: "goldnugget", ok: false, chance: 0.16, roll: 0.5 },
+		{ k: "upgrade", who: "M", item: "blade", from: 3, to: 4, ok: true, scroll: "scroll0", chance: 0.9123, roll: 0.1235 },
 	]);
 	assert.deepEqual(shiny.items.upgraded, {}); // (not an upgrade try)
 });

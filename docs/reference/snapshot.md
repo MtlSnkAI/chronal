@@ -239,13 +239,16 @@ apart, the last one the latest; over 300 rows the step doubles and the rows are 
 **The items' events (`<id>.items.ndjson`, `items_log: { file, lines, bytes, capped }`):** a line per event from the base
 on, `t` measured s, `k` its kind, `who` the character:
 - `loot`: `item`, `level` (when it has one), `q`;
-- `upgrade`, `compound`: `item`, `from` and `to` (the levels tried), `ok`, `lost` (an upgrade's item gone);
-- `stat`: a stat scroll's: `item`, `stat`, `ok`;
+- `upgrade`, `compound`: `item`, `from` and `to` (the levels tried), `ok`, `lost` (an upgrade's item gone); its roll:
+  `scroll`, `offering`, `chance` (the server's, grace in; it can pass 1), `roll` (a success: `roll <= chance`), and the
+  grace before it: `grace` (the item's; a compound's: its three items'), `og` (the character's offering grace), an
+  upgrade's `ug` (`[the character's, the server's]` upgrade grace at the level tried);
+- `stat`: a stat scroll's: `item`, `stat`, `ok`, `scroll`;
 - `trade`: a sale at a merchant's stand (`via: "stand"`, trade_buy) or into a buy order (`via: "wish"`, trade_sell):
   `who` the seller, `to` the buyer, `item`, `level`, `stat_type`, `q`, `price` (before the seller's tax), `tax`; one
   per trade where either side is the run's;
 - `shiny`: an ingot's or a nugget's roll on an item with no scroll (its level stays): `item`, `level`, `offering`, `ok`
-  (shiny);
+  (shiny), `chance`, `roll`;
 - `give`: a handover: `to`, `item`, `level`, `q`; `gold`: `to`, `amount`.
 
 Only appended to; past 16 MB a last `{ t, k: "cap" }` and no more (`capped`). The events add up to the ledgers
