@@ -65,7 +65,7 @@ test("loadSetup: defaults filled, paths absolute; every problem listed at once",
 	const s = S.loadSetup(setupFile(d, { defaults: { code: { dir: "lib" } }, characters: [{ name: "Ran", class: "ranger" }] }), { G });
 	assert.equal(s.name, "setup");
 	assert.deepEqual(s.run, { duration: "30m", warmup: "0m", seed: 1, until: null, check: "1s", grid_ms: 30000 });
-	assert.deepEqual(s.world, { roi: null, threads: true, age: "0m", ping: 18, start: "2026-01-01T00:00:00Z", seasons: [], anniversary: true, events: [], spawns: [] });
+	assert.deepEqual(s.world, { roi: null, threads: true, age: "0m", ping: 18, start: "2026-01-01T00:00:00Z", seasons: [], anniversary: true, ugrace: null, ugrace_fixed: false, events: [], spawns: [] });
 	// the world's clock, seasons and forced events checked
 	const w = (world, run) => { try { S.loadSetup(setupFile(d, { defaults: { code: { dir: "lib" } }, characters: [{ name: "Ran", class: "ranger" }], world, ...(run ? { run } : {}) }), { G }); return []; } catch (x) { return x.problems; } };
 	assert.deepEqual(w({ start: "2026-10-31T23:30Z", seasons: ["halloween"], events: [{ event: "goobrawl", at: "10m" }] }), []);

@@ -25,3 +25,27 @@ for (const on of [true, false])
 			await sim.close();
 		}
 	});
+
+test("world.ugrace: the server's upgrade grace per level (a new realm's 24; a number; { level: n }); fixed: held, still saved as plain values", { skip, timeout: 180000 }, async () => {
+	const ug = async (o) => {
+		const sim = await createSim({ root: ROOT, seed: 1, threads: false, live: false, ...o });
+		try {
+			const S = sim.server.S,
+				before = Array.from(S.ugrace);
+			S.ugrace[4] = 99; // (as a failed upgrade to +4 would move it)
+			return { before, after: Array.from(S.ugrace), clone: structuredClone(S.ugrace) };
+		} finally {
+			await sim.close();
+		}
+	};
+	const d = await ug({});
+	assert.deepEqual(d.before, Array(25).fill(24));
+	assert.equal(d.after[4], 99);
+	const z = await ug({ ugrace: 0 });
+	assert.deepEqual(z.before, Array(25).fill(0));
+	const o = await ug({ ugrace: { 4: 3 } });
+	assert.deepEqual([o.before[3], o.before[4], o.before[5]], [24, 3, 24]);
+	const f = await ug({ ugrace: 6, ugrace_fixed: true });
+	assert.equal(f.after[4], 6, "held");
+	assert.deepEqual(Array.from(f.clone), Array(25).fill(6));
+});

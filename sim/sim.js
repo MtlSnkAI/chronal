@@ -46,6 +46,8 @@ function haltOnSignals(sim, on) {
  * @param {number} [o.start]           epoch ms the world's clock starts at (default 2026-01-01T00:00Z: vclock.js)
  * @param {string[]} [o.seasons]       the server's season switches on (server_host.js startServer)
  * @param {boolean} [o.anniversary]    the anniversary event (default on, as the game server ships)
+ * @param {*} [o.ugrace]                the server's upgrade grace per level (null: a new realm's, 24 each; a number, a list,
+ *                                     { <level>: n } over the 24s); o.ugrace_fixed: held there (a busy realm's steady state)
  * @param {boolean} [o.threads]        one thread per character, stepped in lockstep with the server (docs/explanation/sim.md)
  * @param {number} [o.ping]           round trip client<->server ms, as the game's character.ping (default 18): each way
  *                                     takes 0.4-0.6x it, uniform. In threads mode the minimum is also the lockstep window.
@@ -79,6 +81,7 @@ async function createSim(o) {
 	try {
 		server = await startServer(env, { seasons: o.seasons || [], anniversary: o.anniversary !== false });
 		server.__root = env.root; // clientInfo() reads the design files from here (what /data.js serves)
+		if (o.ugrace != null || o.ugrace_fixed) setUgrace(server, o.ugrace, !!o.ugrace_fixed);
 	} finally {
 		console.log = log;
 	}
@@ -720,4 +723,17 @@ function deepMerge(a, b) {
 	return a;
 }
 
-module.exports = { createSim, roiOption, lockstepWindow };
+// The server's upgrade grace (S.ugrace: per level 0-24, the level an upgrade goes to; a new realm starts at 24 each,
+// a live one carries what its players' upgrades made of it): v (null: as it is; a number; a list; { <level>: n }), and
+// fixed: its levels held (a failed or successful upgrade moves nothing; plain values for the server's saves)
+function setUgrace(server, v, fixed) {
+	const S = server.S,
+		cur = (S && S.ugrace) || Array(25).fill(24),
+		vals = Array.from({ length: 25 }, (_, i) => (v == null ? cur[i] : typeof v === "number" ? v : Array.isArray(v) ? v[i] ?? cur[i] : v[i] ?? cur[i]));
+	if (!fixed) return void (S.ugrace = vals);
+	const held = [];
+	for (let i = 0; i < 25; i++) Object.defineProperty(held, i, { get: () => vals[i], set() {}, enumerable: true });
+	S.ugrace = held;
+}
+
+module.exports = { createSim, roiOption, lockstepWindow, setUgrace };
