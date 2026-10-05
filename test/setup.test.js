@@ -236,13 +236,13 @@ test("server state: state.p (key by key over an export's tracker kill counts) an
 		defaults: { code: { file: "farm.js" } },
 		accounts: { a: { cash: 120 } },
 		characters: [
-			{ name: "T", class: "ranger", account: "a", state: { from: "Tr.json", p: { ugrace: ug, ograce: 3, firstbuff: true } } },
+			{ name: "T", class: "ranger", account: "a", state: { from: "Tr.json", p: { ugrace: ug, ograce: 3, firstbuff: true, item_num: 41 } } },
 			{ name: "U", class: "ranger", account: "a", state: { p: { stats: { monsters: { bee: 9 } } }, s: { mluck: { ms: 60000, f: "Me" } } } },
 		],
 	}), { G });
 	const { resolved } = S.resolveSetup(s, { G });
 	const [t, u] = resolved.characters;
-	assert.deepEqual(S.characterOver(t).info.p, { stats: { monsters: { goo: 50 }, monsters_diff: { goo: 2 }, exchanges: { gem0: 1 } }, ugrace: ug, ograce: 3, firstbuff: true });
+	assert.deepEqual(S.characterOver(t).info.p, { stats: { monsters: { goo: 50 }, monsters_diff: { goo: 2 }, exchanges: { gem0: 1 } }, ugrace: ug, ograce: 3, firstbuff: true, item_num: 41 });
 	assert.deepEqual(S.characterOver(u).info.p, { stats: { monsters: { bee: 9 } } }); // (the setup's stats replace an export's whole)
 	assert.deepEqual(S.characterOver(u).info.s, { mluck: { ms: 60000, f: "Me" } });
 	assert.equal(S.characterOver(t).info.s, undefined); // (an export's conditions are never taken)
@@ -251,6 +251,8 @@ test("server state: state.p (key by key over an export's tracker kill counts) an
 	bad({ p: { ugrace: [1, 2] } });
 	bad({ p: { nope: 1 } });
 	bad({ p: { firstbuff: "yes" } });
+	bad({ p: { item_num: 42 } });
+	bad({ p: { item_num: 1.5 } });
 	bad({ s: { mluck: 5 } });
 	bad({}, { cash: -1 });
 });
@@ -555,7 +557,7 @@ test("start.js follows a page that the server disconnects at the start (its CODE
 	}
 });
 
-test("server state on a real sim: state.p reaches the server's player (grace, tracker kill counts), account cash its user", { timeout: 120000 }, async (t) => {
+test("server state on a real sim: state.p reaches the server's player (grace, lucky slot, tracker kill counts), account cash its user", { timeout: 120000 }, async (t) => {
 	const { config } = require("../lib/config");
 	if (!fs.existsSync(path.join(config().al_root, "design"))) return t.skip(`no game at ${config().al_root}`);
 	const { startSetup } = require("../sim/start");
@@ -563,13 +565,19 @@ test("server state on a real sim: state.p reaches the server's player (grace, tr
 	const ug = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28];
 	const { resolved, bundles } = S.resolveSetup(S.loadSetup(setupFile(d, {
 		world: { threads: false }, accounts: { main: { cash: 33 } },
-		characters: [{ name: "Ran", class: "ranger", account: "main", state: { level: 30, p: { ugrace: ug, ograce: 5, stats: { monsters: { goo: 1234 } } } }, at: "main:0:0", code: { file: "farm.js" } }],
+		characters: [
+			{ name: "Ran", class: "ranger", account: "main", state: { level: 30, p: { ugrace: ug, ograce: 5, item_num: 17, stats: { monsters: { goo: 1234 } } } }, at: "main:0:0", code: { file: "farm.js" } },
+			{ name: "Ran2", class: "ranger", account: "main", state: { level: 30 }, at: "main:0:0", code: { file: "farm.js" } },
+		],
 	})));
 	const { sim } = await startSetup(resolved, bundles, { live: false });
 	try {
 		const p = Object.values(sim.server.players).find((x) => x.name === "Ran");
 		assert.deepEqual([...p.p.ugrace], ug); // (the server's realm: a copy to compare)
 		assert.equal(p.p.ograce, 5);
+		assert.equal(p.p.item_num, 17);
+		const p2 = Object.values(sim.server.players).find((x) => x.name === "Ran2");
+		assert.ok(Number.isInteger(p2.p.item_num) && p2.p.item_num >= 0 && p2.p.item_num < 42, "the server draws one: " + p2.p.item_num);
 		assert.equal(p.p.stats.monsters.goo, 1234);
 		const id = sim.accounts.get("main").user_id;
 		assert.equal(sim.env.db.collection(sim.env.kindOf(id)).store.get(id).cash, 33);

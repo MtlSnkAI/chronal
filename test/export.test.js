@@ -32,7 +32,7 @@ test("end state: raw items (grace, locked), gear incl. a trade slot, p, the whol
 		format: "chronal-setup/1", name: "exp", run: { duration: "1m" }, world: { threads: false, start: "2026-03-01T00:00:00Z" },
 		accounts: { a: { age_days: 3, cash: 11, bank: { gold: 900, items0: [{ name: "hpot1", q: 4 }], items1: [], items8: [{ name: "gem0", q: 1 }] } } },
 		characters: [
-			{ name: "Ran", class: "ranger", account: "a", at: "main:10:20", code: { file: IDLE }, state: { level: 40, gold: 1234, items: [{ name: "coat", level: 3, grace: 2 }, { name: "ringsj", level: 1, l: "l" }, null], slots: { mainhand: { name: "bow", level: 5 } }, p: { ugrace: ug, ograce: 4 } } },
+			{ name: "Ran", class: "ranger", account: "a", at: "main:10:20", code: { file: IDLE }, state: { level: 40, gold: 1234, items: [{ name: "coat", level: 3, grace: 2 }, { name: "ringsj", level: 1, l: "l" }, null], slots: { mainhand: { name: "bow", level: 5 } }, p: { ugrace: ug, ograce: 4, item_num: 9 } } },
 			{ name: "Mer", class: "merchant", account: "a", at: "main:30:40", code: { file: IDLE }, state: { level: 30, slots: { trade1: { name: "hpot0", q: 10, price: 50 } } } },
 		],
 	};
@@ -55,6 +55,8 @@ test("end state: raw items (grace, locked), gear incl. a trade slot, p, the whol
 	assert.equal(ran.character.gold, 1234);
 	assert.deepEqual(ran.server.p.ugrace, ug);
 	assert.equal(ran.server.p.ograce, 4);
+	assert.equal(ran.server.p.item_num, 9);
+	assert.ok(Number.isInteger(mer.server.p.item_num), "the lucky slot the server drew, carried: " + mer.server.p.item_num);
 	assert.ok(!Object.keys(ran.server.s).some((k) => k.startsWith("encouragement_")), "login-made conditions left out");
 	assert.equal(mer.character.slots.trade1.name, "hpot0");
 	assert.equal(mer.character.slots.trade1.price, 50);

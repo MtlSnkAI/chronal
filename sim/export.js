@@ -11,7 +11,7 @@ const fs = require("node:fs"),
 
 const FORMAT = "chronal-export/1";
 // the server's p a setup's state.p takes (lib/setup.js KEYS.p); the rest is the server's own bookkeeping
-const P_KEYS = ["ugrace", "cgrace", "ograce", "stats", "achievements", "ap", "firstbuff", "encouragement_reached80", "first", "first_drop", "dt", "rewards", "minutes", "stand"];
+const P_KEYS = ["ugrace", "cgrace", "ograce", "item_num", "stats", "achievements", "ap", "firstbuff", "encouragement_reached80", "first", "first_drop", "dt", "rewards", "minutes", "stand"];
 // conditions the server makes at each login (encouragement) or that only a live session has
 const S_SKIP = /^(encouragement_|notverified$|authfail$)/;
 

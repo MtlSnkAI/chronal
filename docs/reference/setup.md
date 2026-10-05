@@ -127,7 +127,9 @@ character yet, so more than 5 online characters start a few game seconds apart, 
   doesn't list starts empty.
 - `skin`, `cx` (cosmetics `{ <place>: <cosmetic> }`): its looks, given or the export's; else the class's default look.
 - `p`: its server-side state, which live never shows (modelling): `ugrace`, `cgrace` (15 numbers each: its upgrade and
-  compound grace per level), `ograce`, `stats` (`{ monsters, monsters_diff, exchanges }`: the tracker's kill counts),
+  compound grace per level), `ograce`, `item_num` (its lucky upgrade slot, 0-41: an upgrade of the item in that bag slot
+  gets a lower roll 6 times in 10; the server draws it once per character and keeps it, a sim's character without one
+  draws its own), `stats` (`{ monsters, monsters_diff, exchanges }`: the tracker's kill counts),
   `achievements`, `ap`, `firstbuff` (the holiday spirit taken), `encouragement_reached80`, `first`, `first_drop`, `dt`,
   `rewards`, `minutes`. Key by key over an export's tracker kill counts (the snippet exports them for a tracker holder).
 - `s`: its conditions at the start (`{ <condition>: { ms, ... } }`), e.g. an mluck.
