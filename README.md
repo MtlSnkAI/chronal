@@ -69,6 +69,7 @@ The [first run tutorial](docs/tutorials/first-run.md) walks through this, then a
 - [Run someone else's CODE](docs/how-to/run-others-code.md): the CODE library, trust, fitting.
 - [Steer a run](docs/how-to/steer-a-run.md): storage, steering steps, stopping on a condition.
 - [Check the sim against live](docs/how-to/check-against-live.md): the same CODE on a live server and in the sim, compared.
+- [Measure a realm's upgrade grace](docs/how-to/measure-upgrade-grace.md): read a live realm's `S.ugrace` for `world.ugrace`.
 
 **Reference**
 - [Commands](docs/reference/cli.md), [settings](docs/reference/config.md), [the setup format](docs/reference/setup.md)
