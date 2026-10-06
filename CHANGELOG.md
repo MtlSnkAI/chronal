@@ -10,19 +10,15 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
-### Fixed
+## [0.8.0] - 2026-10-06
 
-- Compare no longer lists settings a run's setup file from an older version leaves out as changes (world.anniversary
-  true -> none, world.ugrace_fixed false -> none): a setting left out reads as its default. A change whose two sides
-  read the same (world.ugrace none -> none) is not listed.
+### Upgrading
 
-### Changed
-
-- Compare names a series in one short line: at most 3 of its changes from the baseline, the ones that change results
-  first (characters, gear, CODE, run and world settings); the rest in its "+N" chip, listed by group. Versions, CODE
-  names, the world's start date and account ages are only in that list. A run that shares less than half of its
-  characters with the baseline shows its own label and "other setup: N differences". The charts' legends name each
-  series by its name only, the full label on hover. ([dashboard](docs/reference/dashboard.md))
+- Run `chronal install` once after updating: it records the game it installs (`runtime/installed.json`), and until
+  then `chronal run` and the dashboard warn. It checks your upstream clones out at the pinned commits (detached) when
+  they are elsewhere.
+- Runs record the game's commit, and it is part of the setup key: runs from this version on don't group with earlier
+  runs of the same setup. Snapshots: schema 2.8 (`versions.game`).
 
 ### Added
 
@@ -40,6 +36,20 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   opens an issue (label `upstream`) when they fail, saying which upstream commit broke which tests; it comments when
   they pass again. A game change that breaks chronal shows up before anyone moves the pin to it
   ([#1](https://github.com/MtlSnkAI/chronal/issues/1)).
+
+### Changed
+
+- Compare names a series in one short line: at most 3 of its changes from the baseline, the ones that change results
+  first (characters, gear, CODE, run and world settings); the rest in its "+N" chip, listed by group. Versions, CODE
+  names, the world's start date and account ages are only in that list. A run that shares less than half of its
+  characters with the baseline shows its own label and "other setup: N differences". The charts' legends name each
+  series by its name only, the full label on hover. ([dashboard](docs/reference/dashboard.md))
+
+### Fixed
+
+- Compare no longer lists settings a run's setup file from an older version leaves out as changes (world.anniversary
+  true -> none, world.ugrace_fixed false -> none): a setting left out reads as its default. A change whose two sides
+  read the same (world.ugrace none -> none) is not listed.
 
 ## [0.7.0] - 2026-10-06
 
@@ -184,7 +194,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 The first release: Adventure Land's real game server and clients on a virtual clock, running your CODE unmodified and
 headless at 100x and more, with a dashboard, replays, and fidelity checks against live.
 
-[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.7.0...develop
+[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.8.0...develop
+[0.8.0]: https://github.com/MtlSnkAI/chronal/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/MtlSnkAI/chronal/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/MtlSnkAI/chronal/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/MtlSnkAI/chronal/compare/v0.5.0...v0.6.0
