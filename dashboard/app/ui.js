@@ -136,7 +136,7 @@ export function runChips(w) {
 	for (const v of L.vs) c.push(v.set ? chip("set|" + v.set, "CODE set " + v.set + (code ? ", hash " + code : ""), [CODEI(), v.set], "cd") : lcItem(w, v.who, v.slot, itemSpec(v.spec)));
 	for (const g of L.gear) c.push(...gearChips(w, g));
 	if (L.code && code) c.push(chip("code", "CODE hash " + code + (cur ? " (" + cur + ": the CODE's source when it was rerun)" : "") + ": most runs of this name ran another", [CODEI(), L.sets.get(code) || html`<span class="hx">${code}</span>`], "cd"));
-	if (L.sim) { const v = w.versions.sim; c.push(chip("sim", "the version of the sim " + v + " (the last git commit of what changes a run; +: uncommitted changes" + (w.versions.chronal ? "; chronal " + w.versions.chronal : "") + "); most runs of this name ran " + L.sim, [FF(), html`<span class="hx">${v.replace(/\+(\w{3})\w*$/, "+$1")}</span>`])); }
+	if (L.sim) { const v = w.versions.sim; c.push(chip("sim", "the version of the sim " + v + " (the last git commit of what changes a run; +: uncommitted changes" + (w.versions.chronal ? "; chronal " + w.versions.chronal : "") + "); most runs of this name ran " + L.sim, [FF(), html`<span class="hx">${w.versions.chronal ? w.versions.chronal.replace(/\.(\w{3})\w*$/, ".$1") : v.replace(/\+(\w{3})\w*$/, "+$1")}</span>`])); }
 	if (L.warm) c.push(chip("warm", "game time with the characters online before measuring", "warm-up " + fmtSpan((w.run && w.run.warmup_ms) || 0)));
 	if (L.wage) c.push(chip("wage", "game time the world ran with no characters before they logged in", "world age " + fmtSpan(wageOf(w))));
 	// not as on live: always said (a forced event, a season on, a custom world)
