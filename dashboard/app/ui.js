@@ -142,7 +142,10 @@ export function runChips(w) {
 	// not as on live: always said (a forced event, a season on, a custom world)
 	const wd = w.world || {};
 	for (const e of wd.forced || []) c.push(chip("ev|" + e.event + e.at_ms, "event forced: " + e.event + " started at " + fmtG(e.at_ms) + " of the run, not by the server's schedule (not as on live)", e.event + " forced", "lcw"));
-	for (const x of wd.seasons || []) c.push(chip("se|" + x, "the season " + x + " on (a server switch: its drops and monsters; not as on live now)", x, "lcw"));
+	for (const x of wd.seasons || []) {
+		const n = typeof x === "string" ? x : x.season, when = typeof x === "string" ? "" : (x.from ? " from " + x.from : "") + (x.to ? " to " + x.to : "");
+		c.push(chip("se|" + n + when, "the season " + n + " on" + (when || " from the start") + " (a server switch: its drops and monsters; not as on live now)", n + when, "lcw"));
+	}
 	if (wd.spawns && wd.spawns.length) c.push(chip("cw", "a custom world (not as on live): " + spawnsText(wd.spawns), "custom world", "lcw"));
 	for (const t of L.tk) {
 		if (/^ping /.test(t)) c.push(chip(t, "the round trip client-server in ms", t));

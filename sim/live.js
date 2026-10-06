@@ -258,6 +258,7 @@ function metrics(p, census) {
 	};
 }
 
+const SEASON_NAMES = require("../lib/schedule").SEASONS;
 const r4 = (x) => (Number.isFinite(x) ? Math.round(x * 1e4) / 1e4 : null);
 // sockets of which sim have a Live (requests are closed after their handler: ServerSocket._packet)
 const LIVES = new Map();
@@ -347,6 +348,7 @@ class Live {
 		this.ageMs = rs ? SETUP.parseDuration(rs.world.age) || 0 : 0; // world.age: game ms with no characters before they logged in
 		this.mlv = { base: null, end: null }; // monster levels at the base and at the end (mlevels())
 		this.forcedEvents = []; // the dailies and nightlies the setup forced (world.events): { event, at_ms, t } as they fired
+		this.seasonSwitches = []; // the seasons switched as the run went (world.seasons with times): { season, on, t }
 		this.eventsSeen = {}; // a daily or nightly on at a snapshot: { <event>: { from, to } } (game s from the base; null: before it)
 		this.last = 0;
 		this.prev = null; // { real, v, busy } at the previous snapshot
@@ -1887,7 +1889,7 @@ class Live {
 			deaths: { total: this.deaths.length - (base ? base.deaths : 0), groups: [...groups.values()].sort((a, b) => b.n - a.n).slice(0, 60), recent: measuredDeaths.slice(-10).map(({ v: dv, ...d }) => ({ ...d, t: rel(dv) })) },
 			party: { members, merchant, merchant_in_party: this.party.merchant_in, formed_ms: members.length > 1 ? this.party.formed : null, party_ms: this.party.ms, groups: partyGroups, history: this.party.history },
 			merchant: merchant ? { name: merchant, trips: this.merchant.trips, per_fighter: this.merchant.per_fighter } : null,
-			world: { clock: sim.clock.now, start: new Date(sim.clock.start).toISOString(), seasons: this.setup ? this.setup.resolved.world.seasons || [] : [], spawns: this.setup ? this.setup.resolved.world.spawns || [] : [], forced: this.forcedEvents, events: this.eventsOf(S), globals: { goldm: S.goldm, luckm: S.luckm, xpm: S.xpm }, age_ms: this.ageMs, mlevels: this.mlv },
+			world: { clock: sim.clock.now, start: new Date(sim.clock.start).toISOString(), seasons: this.setup ? this.setup.resolved.world.seasons || [] : [], season_switches: this.seasonSwitches, seasons_on: SEASON_NAMES.filter((k) => S.events && S.events[k]), anniversary: !!(S.events && S.events.anniversary), ugrace: S.S && S.S.ugrace ? Array.from(S.S.ugrace) : null, spawns: this.setup ? this.setup.resolved.world.spawns || [] : [], forced: this.forcedEvents, events: this.eventsOf(S), globals: { goldm: S.goldm, luckm: S.luckm, xpm: S.xpm }, age_ms: this.ageMs, mlevels: this.mlv },
 			grid: gr ? { step_ms: this.gridMs, cols: GRID_COLS, file: path.basename(gr.path), lines: gr.lines, gen: gr.gen, tail: gr.tail } : null,
 			items_log: this.items ? { file: path.basename(this.items.path), lines: this.items.lines, bytes: this.items.bytes, capped: this.items.capped } : null,
 			players, notes: this.notes, steer: this.steers, banks: this.banks(list),
@@ -1900,6 +1902,10 @@ class Live {
 		const t = this.base ? Math.round((this.sim.clock.now - this.base.at) / 1000) : null;
 		for (const k of [...SCH.DAILIES, ...SCH.NIGHTLIES]) if (S.events && S.events[k]) (this.eventsSeen[k] ||= { from: t, to: t }).to = t;
 		return this.eventsSeen;
+	}
+	// a season switched on or off (world.seasons with times) as the run went
+	season(season, on) {
+		this.seasonSwitches.push({ season, on, t: this.base ? Math.round((this.sim.clock.now - this.base.at) / 1000) : null });
 	}
 	// a forced event (chronal run: world.events) as it fired
 	forced(e) {

@@ -81,9 +81,11 @@ class ServerSocket extends Emitter {
 		this.nsp = io;
 		this.client = client;
 		this.id = "s" + io.hub.nextId++ + "x" + Math.floor(io.hub.clock.rng() * 1e9).toString(36);
-		this.handshake = { query, address: "127.0.0.1", headers: { "user-agent": "chronal", host: "localhost" }, time: "", issued: io.hub.clock.nowMs(), url: io.path, xdomain: false, secure: false };
-		this.request = { connection: { remoteAddress: "127.0.0.1" }, headers: this.handshake.headers };
-		this.conn = { remoteAddress: "127.0.0.1", transport: { name: "websocket" } };
+		// its IP: its account's (a setup's accounts.<k>.ip; the user's own accounts share 127.0.0.1)
+		const ip = (client.isRemote ? client.peer && client.peer.ip : client.ip) || "127.0.0.1";
+		this.handshake = { query, address: ip, headers: { "user-agent": "chronal", host: "localhost" }, time: "", issued: io.hub.clock.nowMs(), url: io.path, xdomain: false, secure: false };
+		this.request = { connection: { remoteAddress: ip }, headers: this.handshake.headers };
+		this.conn = { remoteAddress: ip, transport: { name: "websocket" } };
 		this.connected = true;
 		this.disconnected = false;
 		this.data = {};
@@ -117,9 +119,10 @@ class ServerSocket extends Emitter {
 }
 
 class ClientSocket extends Emitter {
-	constructor(hub, url, opts = {}, json) {
+	constructor(hub, url, opts = {}, json, ip) {
 		super();
 		this.hub = hub;
+		this.ip = ip || null;
 		this.JSON = json || JSON;
 		this.connected = false;
 		this.disconnected = true;
@@ -427,9 +430,9 @@ class Hub {
 		}
 		return { Server };
 	}
-	/** The global `io(url, opts)` for a client context. */
-	clientIo(json) {
-		return (url, opts) => new ClientSocket(this, url, opts, json);
+	/** The global `io(url, opts)` for a client context (ip: its sockets' address, default 127.0.0.1). */
+	clientIo(json, ip) {
+		return (url, opts) => new ClientSocket(this, url, opts, json, ip);
 	}
 }
 

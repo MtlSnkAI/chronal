@@ -53,7 +53,10 @@ CODE), the party, the accounts (bank, age, browser storage), the world, the run'
 | `age` | `"0m"` | game time the world runs with no characters before they log in |
 | `ping` | `18` | the round trip to the server in ms, as the game's `character.ping` |
 | `start` | `"2026-01-01T00:00:00Z"` | the world's clock as it boots, a time with its zone (UTC: `Z`) |
-| `seasons` | `[]` | the server's season switches on: `holidayseason`, `lunarnewyear`, `valentines`, `halloween`, `egghunt` |
+| `seasons` | `[]` | the server's season switches: `holidayseason`, `lunarnewyear`, `valentines`, `halloween`, `egghunt` on from the start, or `{ "season", "from", "to" }` between game times after the warm-up (either may be left out). A switch is what the server does for it at boot (its global drops, jr's respawn, the snowman and pinkgoo timers), done and undone as the run goes; its event monsters already up stay. A season's windows don't overlap |
+| `ugrace` | `null` | the server's upgrade grace per level (`S.ugrace`, at the level an upgrade goes to; the grace formula takes `min(6, ugrace / 3)`): `null` a new realm's (24 at every level, the sim's every boot; a live realm carries what its players' upgrades make of it), a number, a list per level 0-24, or `{ "<level>": n }` over the 24s. Upgrades only: compounds have no server-wide grace |
+| `ugrace_fixed` | `false` | `true`: held at those values (a busy realm's steady state: other players' upgrades keep it there) |
+| `anniversary` | `true` | the anniversary event (the game server ships it on, "until manually disabled"): its baker on main, the anniversarygift and slice drops; `false`: none |
 | `events` | `[]` | dailies or nightlies forced: `[{ "event": "goobrawl", "at": "20m" }]` (`crabxx`, `goobrawl`, `abtesting`, `icegolem`, `franky`), at game time after the warm-up |
 | `spawns` | `[]` | a custom world: monsters put in it, `[{ "monster", "at": "map:x:y", "count", "radius", "level", "stats": { "hp", "attack", "armor", "resistance", ... }, "hp": "endless", "respawn": "5s" \| "no", "clear": 250 }]` |
 
@@ -109,8 +112,8 @@ In run order (it seeds the client threads).
 | `online` | `true` | `false`: on its account but not in game at the start; CODE may start it (Switching characters, below) |
 
 At most 3 characters and 1 merchant per account in game at the start, and at most 3 besides merchants in all (the
-game's limits per account and per IP: a run's characters all play from one; a Steam- or MAS-linked account's fighters
-may be 36 from one IP, 3 per link). Their pages log in in setup order, at
+game's limits per account and per IP: the accounts of one `ip` label play from one, by default all of a run's; a
+Steam- or MAS-linked account's fighters may be 36 from one IP, 3 per link). Their pages log in in setup order, at
 most 5 not in game at once: the server disconnects an IP's other pages when more than 5 of its sockets have no
 character yet, so more than 5 online characters start a few game seconds apart, as a browser's pages load on live.
 
@@ -144,6 +147,7 @@ farm }]`; anything else passes through to the CODE.
 | `bank` | a new account's | `{ "from": <export> }` (its bank gold, packs, `unlocked` rooms and claimed `rewards`; other keys are left out, with a warning) or `{ "gold": 5000, "items0": [], ..., "unlocked": { "bank_b": true }, "rewards": [] }`; none: 1000 gold, two empty packs. A bank with packs in `bank_b` (items8-23) or `bank_u` (items24+) gets that room unlocked (an API pull's has no `unlocked`) |
 | `cash` | the bank export's account cash, else 0 | the account's shells (a whole number) |
 | `linked` | `null` (a web account) | `{ "platform": "steam" \| "mas", "pid": <id>, "newcomer": "auto" \| "claimed" }`: a Steam- or MAS-linked account (pid: a fixed 17 digits per account by default). Its logins have an auth id: the Newcomers' Blessing (+10 luck, gold and xp for 7 days, the first drop's 100k gold and items) for an account younger than 100 hours unless `"claimed"`, New Player and Lone Wolf grouped by the pid, and 3 x 12 fighters from one IP (3 per pid). A live export can't tell, so set it |
+| `ip` | `"local"` | a label: accounts with one label play from one IP (`"local"`: the run's own, 127.0.0.1; another label its own address). The server tells IPs apart: its per-IP fighter limit counts each one's, and players of another IP are not "the same" (a merchant's trade xp from them, the send-gold fee, aggro, pvp). `chronal new` gives another player's account (a public page's) its own |
 | `totals` | `true` | `false`: its characters' and its bank's gold out of the run's gold totals (the snapshot's `gold`, the party's sums, steering's `party`, `chronal new`'s rates), e.g. a market or observer account; its characters still have their own numbers. Not part of the setup key |
 | `storage` | `{}` | what the CODE's `get(key)` returns at the start; `null` unsets |
 | `local_storage` | `{}` | raw `localStorage` keys (text) |

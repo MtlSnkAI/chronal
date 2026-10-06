@@ -45,6 +45,9 @@ function haltOnSignals(sim, on) {
  * @param {number} [o.seed]            same seed + same CODE => same run
  * @param {number} [o.start]           epoch ms the world's clock starts at (default 2026-01-01T00:00Z: vclock.js)
  * @param {string[]} [o.seasons]       the server's season switches on (server_host.js startServer)
+ * @param {boolean} [o.anniversary]    the anniversary event (default on, as the game server ships)
+ * @param {*} [o.ugrace]                the server's upgrade grace per level (null: a new realm's, 24 each; a number, a list,
+ *                                     { <level>: n } over the 24s); o.ugrace_fixed: held there (a busy realm's steady state)
  * @param {boolean} [o.threads]        one thread per character, stepped in lockstep with the server (docs/explanation/sim.md)
  * @param {number} [o.ping]           round trip client<->server ms, as the game's character.ping (default 18): each way
  *                                     takes 0.4-0.6x it, uniform. In threads mode the minimum is also the lockstep window.
@@ -76,8 +79,9 @@ async function createSim(o) {
 	if (o.quiet !== false) console.log = () => {};
 	let server;
 	try {
-		server = await startServer(env, { seasons: o.seasons || [] });
+		server = await startServer(env, { seasons: o.seasons || [], anniversary: o.anniversary !== false });
 		server.__root = env.root; // clientInfo() reads the design files from here (what /data.js serves)
+		if (o.ugrace != null || o.ugrace_fixed) setUgrace(server, o.ugrace, !!o.ugrace_fixed);
 	} finally {
 		console.log = log;
 	}
@@ -355,9 +359,9 @@ class Sim {
 		return { user_id, auth, character: cid, name };
 	}
 	/** Log a character in (a new one, or fx: one createCharacter made) and run `code` unmodified once it enters the game. */
-	addCharacter({ name, type, over, code, fps = 60, api, account, user, files, fx: made }) {
+	addCharacter({ name, type, over, code, fps = 60, api, account, user, files, fx: made, ip }) {
 		const fx = made || this.createCharacter({ name, type, over, account, user });
-		const state = startClient(this.env, clientInfo(this.server), { ...fx, code, fps, api, files, onFatal: (msg) => this.fail(msg) });
+		const state = startClient(this.env, clientInfo(this.server), { ...fx, code, fps, api, files, ip, onFatal: (msg) => this.fail(msg) });
 		const c = { name, state, game: state.game, query: async (expr) => state.query(expr), get runner() { return state.runner; }, get errors() { return state.errors; } };
 		this.clients.push(c);
 		return c;
@@ -436,19 +440,19 @@ class ThreadedSim extends Sim {
 		this.hub.onRequest = (peer, data) => this.requests.push({ w: peer.w, data });
 		this.onLeave = null; // (client, reason): a character is about to leave (its thread still answers queries)
 	}
-	addCharacter({ name, type, over, code, fps = 60, account, user, files, owned, codeOf, fx: made }) {
+	addCharacter({ name, type, over, code, fps = 60, account, user, files, owned, codeOf, fx: made, ip }) {
 		const fx = made || this.createCharacter({ name, type, over, account, user });
-		return this.login(fx, { name, type, account, code, fps, files, owned, codeOf });
+		return this.login(fx, { name, type, account, code, fps, files, owned, codeOf, ip });
 	}
 	/** Create a character (as addCharacter) that stays out of the game until CODE starts it (start_character).
 	 * codeOf(slot) -> { code, files } for the slot start_character names ("": its own entry), or null: none such. */
-	declare({ name, type, over, account, user, fps = 60, codeOf, owned }) {
+	declare({ name, type, over, account, user, fps = 60, codeOf, owned, ip }) {
 		const fx = this.createCharacter({ name, type, over, account, user });
-		this.offline.set(name, { fx, name, type, account, fps, codeOf, owned });
+		this.offline.set(name, { fx, name, type, account, fps, codeOf, owned, ip });
 	}
 	/** Log a created character in: its client thread from now (a window boundary while running). codeOf: as declare's,
 	 * for a start_character after it left (none: it can't be started again) */
-	login(fx, { name, type, account, code, fps = 60, files, owned, byPage = null, codeOf = null }) {
+	login(fx, { name, type, account, code, fps = 60, files, owned, byPage = null, codeOf = null, ip = null }) {
 		const { port1, port2 } = new MessageChannel(),
 			data = new MessageChannel();
 		// Shared control block: i32[0] go, i32[1] done, i32[2] kind (0 run to f64[2], 2 command posted), f64[3] busy ms.
@@ -465,7 +469,8 @@ class ThreadedSim extends Sim {
 		// done: replies expected so far (the thread replies once when it's ready)
 		const w = { index, name, type, account, fx, thread, port: port1, data: data.port1, modes: modes && modes.port1, ctrl: i32, done: 1, peer: new RemotePeer(this.hub, index), parent: byPage, children: new Set(), dead: false };
 		w.peer.w = w;
-		w.decl = { fx, name, type, account, fps, codeOf, owned };
+		w.peer.ip = ip; // (its account's address: fake_io.js ServerSocket)
+		w.decl = { fx, name, type, account, fps, codeOf, owned, ip };
 		Object.assign(w, { code, files, fps, owned });
 		w.peer.onClose = (peer) => this.requests.push({ w, data: { op: "closed" } });
 		const go = (kind) => (++w.done, Atomics.store(i32, 2, kind), Atomics.add(i32, 0, 1), Atomics.notify(i32, 0));
@@ -541,7 +546,7 @@ class ThreadedSim extends Sim {
 				continue;
 			}
 			this.offline.delete(w.name);
-			this.login(w.fx, { name: w.name, type: w.type, account: w.account, code: w.code, fps: w.fps, files: w.files, owned: w.owned, byPage: w.parent, codeOf: w.decl.codeOf });
+			this.login(w.fx, { name: w.name, type: w.type, account: w.account, code: w.code, fps: w.fps, files: w.files, owned: w.owned, byPage: w.parent, codeOf: w.decl.codeOf, ip: w.decl.ip });
 		}
 	}
 	named(name) {
@@ -571,7 +576,7 @@ class ThreadedSim extends Sim {
 		}
 		this.offline.delete(name);
 		w.children.add(name);
-		this.login(d.fx, { name, type: d.type, account: d.account, code: got.code, fps: d.fps, files: got.files, owned: d.owned, byPage: w.name, codeOf: d.codeOf });
+		this.login(d.fx, { name, type: d.type, account: d.account, code: got.code, fps: d.fps, files: got.files, owned: d.owned, byPage: w.name, codeOf: d.codeOf, ip: d.ip });
 	}
 	/** A character leaves: its page (and the pages it started) close as a closed tab; the thread ends with this game minute.
 	 * reload: its page loads again (the server disconnected it): its page above keeps its iframe */
@@ -719,4 +724,17 @@ function deepMerge(a, b) {
 	return a;
 }
 
-module.exports = { createSim, roiOption, lockstepWindow };
+// The server's upgrade grace (S.ugrace: per level 0-24, the level an upgrade goes to; a new realm starts at 24 each,
+// a live one carries what its players' upgrades made of it): v (null: as it is; a number; a list; { <level>: n }), and
+// fixed: its levels held (a failed or successful upgrade moves nothing; plain values for the server's saves)
+function setUgrace(server, v, fixed) {
+	const S = server.S,
+		cur = (S && S.ugrace) || Array(25).fill(24),
+		vals = Array.from({ length: 25 }, (_, i) => (v == null ? cur[i] : typeof v === "number" ? v : Array.isArray(v) ? v[i] ?? cur[i] : v[i] ?? cur[i]));
+	if (!fixed) return void (S.ugrace = vals);
+	const held = [];
+	for (let i = 0; i < 25; i++) Object.defineProperty(held, i, { get: () => vals[i], set() {}, enumerable: true });
+	S.ugrace = held;
+}
+
+module.exports = { createSim, roiOption, lockstepWindow, setUgrace };

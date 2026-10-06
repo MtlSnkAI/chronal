@@ -9,6 +9,7 @@ const { EventEmitter } = require("node:events");
 const { createMongoModule, Db, setOutputCloner } = require("./fake_mongo");
 const { realm } = require("./realm");
 const { mulberry32 } = require("./vclock");
+const { blocks, seasonOn } = require("./seasons");
 
 // node:crypto with its random sources drawn from the run's seed (cave_of_many_dreams, the tavern's games, generated
 // maps and the cave's boot id call randomInt / randomBytes): a stream of its own, so Math.random's sequences don't
@@ -218,10 +219,9 @@ function insertAfter(source, fnName, anchor, line) {
 	return source.slice(0, at + anchor.length) + line + source.slice(at + anchor.length);
 }
 
-// seasons: the server's season switches on (a setup's world.seasons), set once its script ran, before it boots (it reads
-// them building its drops and monsters, as its own var events would have them); valentines' goo and holidayseason's
-// snowman every 60 minutes, as server.js sets them for those seasons
-async function startServer(env, { serverKey = "local", timeoutMs = 60000, seasons = [] } = {}) {
+// seasons: the seasons on from the boot (a setup's world.seasons with no start time), switched on as it boots (below);
+// anniversary: the anniversary event's switch
+async function startServer(env, { serverKey = "local", timeoutMs = 60000, seasons = [], anniversary = true } = {}) {
 	const prev = env.patch;
 	env.patch = (file, exports) => {
 		if (file.endsWith(`${path.sep}options.js`) && exports.servers && exports.servers[serverKey]) {
@@ -249,9 +249,19 @@ async function startServer(env, { serverKey = "local", timeoutMs = 60000, season
 		const text = await evalRoute(body.get("code"), JSON.parse(body.get("data") || "{}"));
 		return { ok: true, status: 200, text: async () => text, json: async () => JSON.parse(text) };
 	};
-	for (const s of seasons) ctx.events[s] = true;
-	if (seasons.includes("valentines")) ctx.events.pinkgoo = 60;
-	if (seasons.includes("holidayseason")) ctx.events.snowman = 60;
+	// seasons on from the boot: switched on right after sprocess_game_data (sim/seasons.js: its season blocks, in its
+	// order), the same end state as the server's own path (they are its last statements; nothing reads them before the
+	// event loop), recorded so that a schedule can switch them off
+	env.seasons = {};
+	const sprocess = ctx.sprocess_game_data;
+	ctx.sprocess_game_data = function () {
+		const r = sprocess.apply(this, arguments);
+		for (const s of Object.keys(blocks(env.root))) if (seasons.includes(s)) seasonOn(ctx, s, env.seasons, env.root);
+		return r;
+	};
+	// the anniversary event: on in the server's own events ("remains on until manually disabled"); off: its baker, gift
+	// and slice drops never come (the server checks it as it runs: anniversary_is_active)
+	ctx.events.anniversary = !!anniversary;
 	const t0 = env.clock.now;
 	while (!(ctx.server && ctx.server.live) && env.clock.now - t0 < timeoutMs) await env.clock.run({ forMs: 100 });
 	if (!(ctx.server && ctx.server.live)) throw new Error("[sim] server did not go live");

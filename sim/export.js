@@ -90,6 +90,7 @@ async function endState(sim, resolved, { label = "end", run = null, seed = null,
 	}
 	const index = {
 		format: "chronal-state/1", label, at, run, seed,
+		seasons_on: require("../lib/schedule").SEASONS.filter((k) => S.events && S.events[k]), // (the seasons on then: a continuation's)
 		characters: resolved.characters.filter((c) => files[c.name]).map((c) => ({ name: c.name, class: c.class, account: c.account })),
 		accounts: Object.fromEntries(Object.entries(accounts).map(([k, a]) => [k, { bank_from: resolved.characters.find((c) => c.account === k && files[c.name]).name + ".json", age_days: a.account.age_days, cash: a.account.cash, linked: a.account.linked, newcomer_claimed: a.account.newcomer_claimed }])),
 	};

@@ -101,7 +101,7 @@ const OWN = new Set(["window", "self", "top", "parent", "frames", "globalThis", 
  * jsdom's own contextified window routes every global access through C++ interceptors (~8x slower for AL's code).
  * scripts (the CODE's window): its document's head and body are found by tag name, and a <script> appended to either runs.
  */
-function makeWindow(env, { upper, label, onError, scripts } = {}) {
+function makeWindow(env, { upper, label, onError, scripts, ip } = {}) {
 	const jw = new JSDOM("<!DOCTYPE html><html><head></head><body></body></html>", { url: "http://localhost/" }).window; // DOM only
 	// Bot mode renders no UI, so the document stays empty and every jQuery lookup returns nothing. Answer that directly
 	// instead of running jsdom's selector engine (~100 lookups per frame); falls back to jsdom the moment anything is added.
@@ -146,7 +146,8 @@ function makeWindow(env, { upper, label, onError, scripts } = {}) {
 	g.__jsdom = jw;
 	const report = onError || ((e) => console.error(`[sim ${label}]`, e));
 	env.clock.installInto(g, { profile: "browser", onError: report });
-	g.io = env.hub.clientIo(realm(g).JSON);
+	g.__ip = ip ?? (upper && upper.__ip) ?? null;
+	g.io = env.hub.clientIo(realm(g).JSON, g.__ip);
 	if (scripts) {
 		// A classic inline <script> appended to the document runs as a browser runs it (load_code: "executes the code at
 		// top-level in a synchronized manner"): at once, at this window's top level, once per element; what it throws goes
@@ -214,7 +215,7 @@ function startClient(env, info, o) {
 	const root = env.root,
 		clock = env.clock,
 		label = o.name || o.character;
-	const game = makeWindow(env, { label });
+	const game = makeWindow(env, { label, ip: o.ip });
 	game.console = o.console || { ...console, log() {}, info() {}, debug() {} };
 
 	// Language catalog, as htmls/language.html does.
