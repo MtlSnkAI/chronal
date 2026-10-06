@@ -46,7 +46,7 @@ const fs = require("node:fs"),
 	crypto = require("node:crypto"),
 	{ receiveMessageOnPort } = require("node:worker_threads"),
 	{ ServerSocket } = require("./fake_io"),
-	{ readMode, readStatus, readRole, guarded, STATUS_MS, WHY } = require("./report"),
+	{ readMode, readStatus, readRole, guarded, logTap, LOG_KEEP, STATUS_MS, WHY } = require("./report"),
 	SETUP = require("../lib/setup"),
 	SCH = require("../lib/schedule"),
 	{ gitVersion, simVersion } = SETUP;
@@ -62,7 +62,7 @@ const COMBAT_MS = 3000, TRIPS = 50;
 const BANK_PACK = 42; // slots in a bank pack
 const ROLE = { merchant: "merchant", priest: "healer", warrior: "tank", paladin: "tank" };
 // requests whose add_item() is counted elsewhere (buy/craft: the response, send: the history) or only moves an item
-const MOVED = new Set(["buy", "send", "craft", "exchange", "unequip", "equip", "bank", "swap", "split"]);
+const MOVED = new Set(["buy", "send", "craft", "exchange", "unequip", "equip", "bank", "swap", "split", "trade_buy", "trade_sell"]);
 // conditions: intervals less than GAP_MS apart are one; the timeline has every key, TL_KEY_CAP closed rows per key and
 // TL_CAP per character
 const GAP_MS = 1000, TL_CAP = 200, TL_KEY_CAP = 40;
@@ -244,8 +244,8 @@ function metrics(p, census) {
 		dmg: { done: amount(), by_skill: {}, by_target: {}, taken: amount(), taken_by: {}, taken_mp: 0, avoided: { miss: 0, evade: 0, avoid: 0 } },
 		heal: { done: amount(), by_skill: {}, by_target: {}, received: amount(), received_by: {} },
 		mana: { spent: 0, by_skill: {}, gained: { pots: 0, regen: 0, steal: 0, other: 0 } },
-		items: { looted: {}, consumed: {}, bought: {}, sold: {}, sent: {}, received: {}, upgraded: {}, compounded: {}, exchanged: {}, crafted: {}, mluck_dupes: {}, from_exchange: {}, other: {} },
-		gold_flow: { loot: 0, sold: 0, stand: 0, received: 0, other: 0, bought: 0, craft: 0, sent: 0, other_out: 0, banked: 0 },
+		items: { looted: {}, consumed: {}, bought: {}, sold: {}, stand_bought: {}, stand_sold: {}, sent: {}, received: {}, upgraded: {}, compounded: {}, exchanged: {}, crafted: {}, mluck_dupes: {}, from_exchange: {}, other: {} },
+		gold_flow: { chest: 0, egold: 0, enc: 0, sold: 0, stand: 0, received: 0, other: 0, bought: 0, traded: 0, craft: 0, sent: 0, other_out: 0, banked: 0 },
 		chests: { opened: 0, dry: 0, stale: 0, gone: 0 },
 		casts: {}, credits: 0, xp_award: 0, xp_lost: 0, party_xp: 0, loot_items: 0, lastc: -Infinity,
 		// time: alive, in combat, in a party, sampled (sums of the intervals between samples, by what was true at the first)
@@ -258,6 +258,7 @@ function metrics(p, census) {
 	};
 }
 
+const r4 = (x) => (Number.isFinite(x) ? Math.round(x * 1e4) / 1e4 : null);
 // sockets of which sim have a Live (requests are closed after their handler: ServerSocket._packet)
 const LIVES = new Map();
 let patched = false;
@@ -321,6 +322,10 @@ class Live {
 		// run control: the dashboard's requests (ack: the last seq applied), how it ended, how to run it again
 		this.ctl = path.join(this.dir, this.id + ".ctl");
 		this.ack = 0;
+		this.logs = {}; // name -> { lines, errors, console, last }: its game log (logged())
+		this.taps = new WeakMap(); // single-thread Sim: a client -> its game log's tap (report.js logTap)
+		this.outside = new Set(); // characters whose gold the totals leave out (their account's totals: false)
+		this.outsideAccounts = [];
 		this.exportWanted = null; // an export the dashboard asked for (its label): the run's loop writes it (exported())
 		this.exports = []; // the state exports written: { label, at, t, dir }
 		this.end = null;
@@ -396,8 +401,11 @@ class Live {
 				versions: { sim: simVersion(), code: first.git ? first.git.commit.slice(0, 7) : first.code_dir || first.file ? gitVersion(first.code_dir || path.dirname(first.file)) : "?", code_hash: SETUP.codeHash(rs) },
 				setup: { format: rs.format, file: this.id + ".setup.json", name: rs.name, from: (rs.resolved && rs.resolved.from) || null, hash: SETUP.sideHash(rs) },
 			};
+			// accounts.<k>.totals false (a market account): its characters' and bank's gold out of the run's gold totals
+			this.outsideAccounts = Object.keys(rs.accounts || {}).filter((k) => rs.accounts[k].totals === false);
+			this.outside = new Set(rs.characters.filter((c) => this.outsideAccounts.includes(c.account)).map((c) => c.name));
 			this.roster = rs.characters.map((c) => ({ name: c.name, type: c.class, level: c.state ? c.state.level : null, role: c.role || ROLE[c.class] || "dps", code: c.code.entry, gear_hash: c.state ? gearHash(c.state.slots) : null,
-				account: c.account, party: members.has(c.name), code_hash: c.code.hash, ...(c.online === false ? { online: false } : {}) }));
+				account: c.account, party: members.has(c.name), code_hash: c.code.hash, ...(c.online === false ? { online: false } : {}), ...(this.outside.has(c.name) ? { totals: false } : {}) }));
 			this.explicit = new Set(rs.characters.filter((c) => c.role).map((c) => c.name));
 		} else {
 			this.meta = {
@@ -722,6 +730,17 @@ class Live {
 				} catch (e) {}
 				return r;
 			});
+		// a merchant's stand sale (trade_buy) or a buy order filled (trade_sell): the server records it on both sides
+		// (add_to_trade_history, the seller's "sell" then the buyer's "buy"), the price before the seller's tax
+		hook("add_to_trade_history", (orig) =>
+			function (player, event, name, item, price) {
+				const r = orig.apply(this, arguments);
+				try {
+					const q = live.req;
+					if (q && (q.method === "trade_buy" || q.method === "trade_sell") && player && item) live.traded(player, event, name, item, price, q.method === "trade_sell" ? "wish" : "stand");
+				} catch (e) {}
+				return r;
+			});
 		hook("add_to_history", (orig) =>
 			function (player, event) {
 				const r = orig.apply(this, arguments);
@@ -750,6 +769,24 @@ class Live {
 				}
 			});
 		this.G = G;
+	}
+	// a trade's side (seller "sell", buyer "buy"): the items' ledgers of ours, an items' event per trade (from its sale)
+	traded(player, event, other, item, price, via) {
+		const q = item.q || 1,
+			m = this.mx[player.name],
+			om = this.mx[other];
+		if (event === "sell") {
+			const net = Math.round(price * (1 - (player.tax || 0))),
+				tax = price - net;
+			if (m) {
+				const s = m.items.stand_sold[item.name] || (m.items.stand_sold[item.name] = { q: 0, gold: 0, tax: 0 });
+				(s.q += q), (s.gold += net), (s.tax += tax);
+			}
+			if (m || om) this.itemEvent({ k: "trade", who: player.name, to: other, item: item.name, ...(item.level ? { level: item.level } : {}), ...(item.stat_type ? { stat_type: item.stat_type } : {}), q, price, tax, via });
+		} else if (event === "buy" && m) {
+			const b = m.items.stand_bought[item.name] || (m.items.stand_bought[item.name] = { q: 0, gold: 0 });
+			(b.q += q), (b.gold += price);
+		}
 	}
 	push(a, info) {
 		if (!this.base || !a) return false;
@@ -976,6 +1013,16 @@ class Live {
 		const m = player && this.mx[player.name];
 		if (!m) return;
 		const r = (this.req = { p: player, m, method, data, hp: player.hp, mp: player.mp, ours: this.ours, g: this.ours.map(([q]) => q.gold || 0), pot: null, used: null, chest: null, qu: player.q && player.q.upgrade, qc: player.q && player.q.compound });
+		// an upgrade's or a compound's grace before its roll (the handler moves it): the item's (the three items' summed),
+		// the character's and the server's per level, the offering grace
+		try {
+			if (method === "upgrade" && data) {
+				const it = player.items[data.item_num],
+					lv = ((it && it.level) || 0) + 1;
+				if (it) r.grace0 = { grace: it.grace || 0, ug: [(player.p.ugrace || [])[lv] ?? null, ((S.S && S.S.ugrace) || [])[lv] ?? null], og: player.p.ograce || 0 };
+			} else if (method === "compound" && data && Array.isArray(data.items))
+				r.grace0 = { grace: data.items.reduce((a, n) => a + ((player.items[n] && player.items[n].grace) || 0), 0), og: player.p.ograce || 0 };
+		} catch (e) {}
 		if (method === "open_chest") {
 			const ch = S.chests[data && data.id];
 			if (!ch) return void (r.chest = false);
@@ -990,27 +1037,44 @@ class Live {
 	}
 	lootPre(S, chest, goldm) {
 		const r = this.req;
-		if (!r || !r.aura || !r.chest || r.chest.forced || !chest) return null;
+		if (!r || !r.chest || !chest) return null;
 		const list = [];
 		for (const rc of chest.encouragement || []) {
 			const q = S.players[S.name_to_id[rc.name]];
 			if (q) list.push([rc, q, q.gold]);
 		}
-		return { r, list, eg: chest.encouragement_gold || 0, egold: chest.egold || 0, goldm };
+		return { r, list, eg: chest.encouragement_gold || 0, egold: chest.egold || 0, goldm, angel: !!r.aura && !r.chest.forced };
 	}
-	// each paid receipt: the server's formula at goldm and at goldm without Angel (paid = the formula, else unmatched)
-	lootPost({ r, list, eg, egold, goldm }) {
+	// each paid receipt (the chest's encouragement gold for a character: what it got during the call); with Angel's
+	// aura on the opener, the server's formula at goldm and at goldm without Angel (paid = the formula, else unmatched)
+	lootPost({ r, list, eg, egold, goldm, angel }) {
 		for (const [rc, q, g0] of list) {
 			const paid = q.gold - g0;
 			if (!paid) continue; // not paid now (gone, or kept in a reserved chest)
+			(r.enc ||= new Map()).set(q, (r.enc.get(q) || 0) + paid);
+			if (!angel) continue;
 			const g = tax(Math.floor((eg * goldm + egold) * rc.gold));
 			if (g !== paid) {
 				r.bad = true;
 				continue;
 			}
-			(r.enc ||= new Map()).set(q, (r.enc.get(q) || 0) + paid);
 			r.extra = (r.extra || 0) + g - tax(Math.floor((eg * (goldm - r.aura) + egold) * rc.gold));
 		}
+	}
+	// a chest's gold for one of ours (d, after tax): its encouragement receipts (measured), the rest the chest's payout,
+	// tax(round(gold x share x goldm) + round(egold x share)): split between the chest's gold and the monster's egold by
+	// their shares before tax (the parts sum to d)
+	chestGold(r, q, d, f) {
+		const enc = Math.min(d, (r.enc && r.enc.get(q)) || 0),
+			rest = d - enc,
+			obj = r.chest && r.chest.obj,
+			p = r.p,
+			sh = p.party ? q.share || 0 : 1,
+			E = obj ? Math.round((obj.egold || 0) * sh) : 0;
+		let T = Math.round(rest / 0.9);
+		for (const t of [T, T - 1, T + 1]) if (tax(t) === rest) T = t;
+		const eg = T > 0 ? Math.min(rest, Math.round((rest * Math.min(E, T)) / T)) : 0;
+		(f.enc += enc), (f.egold += eg), (f.chest += rest - eg);
 	}
 	/** After a request's handler: gold of every character by method, potions/regen, chest opens, upgrade rolls. */
 	closeReq() {
@@ -1025,11 +1089,11 @@ class Live {
 			if (!d || !qm) continue;
 			const f = qm.gold_flow;
 			switch (r.method) {
-				case "open_chest": d > 0 ? (f.loot += d) : (f.other_out -= d); break;
+				case "open_chest": d > 0 ? this.chestGold(r, q, d, f) : (f.other_out -= d); break;
 				case "sell": d > 0 ? (f.sold += d) : (f.other_out -= d); break;
 				case "buy": case "sbuy": d < 0 ? (f.bought -= d) : (f.other += d); break;
 				case "send": d < 0 ? (f.sent -= d) : (f.received += d); break;
-				case "trade_buy": case "trade_sell": d > 0 ? (f.stand += d) : (f.bought -= d); break;
+				case "trade_buy": case "trade_sell": d > 0 ? (f.stand += d) : (f.traded -= d); break;
 				case "craft": case "dismantle": d < 0 ? (f.craft -= d) : (f.other += d); break;
 				case "bank":
 					// a bank pack bought with gold is spent; deposits (+) and withdrawals (-) are banked
@@ -1050,23 +1114,28 @@ class Live {
 			const it = p.p.u_item || p.p.u_itemx,
 				ph = p.items && p.items[p.q.upgrade.num];
 			// an ingot or a nugget with no scroll: a roll to make the item shiny, its level unchanged (not an upgrade)
+			// the roll: its scroll and offering, the chance it had (grace in) and the roll (a success: roll <= chance)
+			const roll = ph && ph.name === "placeholder" && ph.p ? { scroll: ph.p.scroll, ...(ph.p.offering ? { offering: ph.p.offering } : {}), chance: r4(ph.p.chance), roll: r4(p.p.u_roll), ...(r.grace0 || {}) } : {};
 			if (it && ph && ph.name === "placeholder" && ph.p && ph.p.scroll === null && ph.p.offering)
-				this.itemEvent({ k: "shiny", who: p.name, item: it.name, level: it.level || 0, offering: ph.p.offering, ok: !p.p.u_fail });
+				this.itemEvent({ k: "shiny", who: p.name, item: it.name, level: it.level || 0, offering: ph.p.offering, ok: !p.p.u_fail, chance: roll.chance, roll: roll.roll });
 			else if (it) {
 				const u = m.items.upgraded[it.name] || (m.items.upgraded[it.name] = { ok: 0, fail: 0, lost: 0 }), ok = !!p.p.u_item && !p.p.u_fail, lv = it.level || 0;
 				ok ? u.ok++ : u.fail++;
 				if (!p.p.u_item) u.lost++;
 				// (a success holds the new level, a failure the one it had)
-				if (p.p.u_type === "stat") this.itemEvent({ k: "stat", who: p.name, item: it.name, stat: it.stat_type || null, ok });
-				else this.itemEvent({ k: "upgrade", who: p.name, item: it.name, from: ok ? lv - 1 : lv, to: ok ? lv : lv + 1, ok, ...(p.p.u_item ? {} : { lost: true }) });
+				const from = Number.isFinite(p.p.u_level) ? p.p.u_level : ok ? lv - 1 : lv;
+				if (p.p.u_type === "stat") this.itemEvent({ k: "stat", who: p.name, item: it.name, stat: it.stat_type || null, ok, ...(roll.scroll ? { scroll: roll.scroll } : {}) });
+				else this.itemEvent({ k: "upgrade", who: p.name, item: it.name, from, to: from + 1, ok, ...(p.p.u_item ? {} : { lost: true }), ...roll });
 			}
 		}
 		if (r.method === "compound" && p.q && p.q.compound && p.q.compound !== r.qc && p.p) {
-			const it = p.p.c_item || p.p.c_itemx;
+			const it = p.p.c_item || p.p.c_itemx,
+				ph = p.items && p.items[p.q.compound.num],
+				roll = ph && ph.name === "placeholder" && ph.p ? { scroll: ph.p.scroll, ...(ph.p.offering ? { offering: ph.p.offering } : {}), chance: r4(ph.p.chance), roll: r4(p.p.c_roll), ...(r.grace0 || {}) } : {};
 			if (it) {
 				const u = m.items.compounded[it.name] || (m.items.compounded[it.name] = { ok: 0, fail: 0 }), ok = !!p.p.c_item, lv = it.level || 0;
 				ok ? u.ok++ : u.fail++;
-				this.itemEvent({ k: "compound", who: p.name, item: it.name, from: ok ? lv - 1 : lv, to: ok ? lv : lv + 1, ok });
+				this.itemEvent({ k: "compound", who: p.name, item: it.name, from: ok ? lv - 1 : lv, to: ok ? lv : lv + 1, ok, ...roll });
 			}
 		}
 		if (r.chest) {
@@ -1299,6 +1368,10 @@ class Live {
 					if (g.impure && g.impure !== "threw") (r.impure ||= {})[k] = g.impure;
 					return g.value;
 				};
+				// its game log's new lines (its console goes to the run's stderr here: not counted)
+				const tap = this.taps.get(c) || (this.taps.set(c, logTap()), this.taps.get(c)),
+					got = st && st.game ? tap(st.game) : [];
+				if (got.length) this.logged(c.name, { n: got.length, err: got.filter(([kd]) => kd === "pageerror").length, con: 0, lines: got.slice(-LOG_KEEP).map(([kd, t]) => [v, kd, t]) });
 				const m = runner ? read("mode", () => readMode(runner)) : null,
 					k = m ? m.v : null;
 				if (m && m.from) r.from = m.from;
@@ -1492,7 +1565,7 @@ class Live {
 			f = m.gold_flow,
 			cm = (k) => (m.cond[k] ? m.cond[k].ms : 0);
 		return [p.level, c.xp - s0.xp, c.kills - s0.kills, m.credits, c.deaths - s0.deaths, m.dmg.done.net, m.dmg.done.raw, m.dmg.taken.net, m.heal.done.net, m.heal.done.raw,
-			f.loot + f.sold + f.stand, m.loot_items, c.hp - s0.hp, c.mp - s0.mp, m.mana.spent, (p.gold || 0) - m.gold0, m.alive_ms, m.combat_ms, m.party_ms,
+			f.chest + f.egold + f.enc + f.sold + f.stand, m.loot_items, c.hp - s0.hp, c.mp - s0.mp, m.mana.spent, (p.gold || 0) - m.gold0, m.alive_ms, m.combat_ms, m.party_ms,
 			cm("citizen0aura"), cm("citizen4aura"), cm("mluck"), cm("encouragement_lonewolf"), cm("party"), m.exact.angel_gold, m.dmg.taken.raw];
 	}
 	// over GRID_MAX: keep every other line older than the newest GRID_KEEP_MS (rows are cumulative: only resolution goes)
@@ -1558,7 +1631,16 @@ class Live {
 					(r.from = x.from || null), (r.impure = x.impure || null);
 					if ("status" in x) r.status = x.status;
 					if ("role" in x) r.role = x.role;
+					if (x.log) this.logged(w.name, x.log);
 				}
+	}
+	// a character's game log lines and console errors (client threads: pollModes; the single-thread Sim: probe()):
+	// counts since the start, the last LOG_KEEP lines
+	logged(name, x) {
+		const L = (this.logs[name] ||= { lines: 0, errors: 0, console: 0, last: [] });
+		(L.lines += x.n), (L.errors += x.err || 0), (L.console += x.con || 0);
+		L.last.push(...x.lines);
+		if (L.last.length > LOG_KEEP) L.last.splice(0, L.last.length - LOG_KEEP);
 	}
 	// notes.chronal: the getters no longer called, "<name>: <field> disabled (<why>)"; each warned about once
 	alSimNotes() {
@@ -1690,7 +1772,7 @@ class Live {
 			for (const k of Object.keys(c)) d[k] = c[k] - s0[k];
 			const m = this.mx[p.name];
 			const f = m && m.gold_flow,
-				income = m ? f.loot + f.sold + f.stand : 0;
+				income = m ? f.chest + f.egold + f.enc + f.sold + f.stand : 0;
 			if (base) {
 				rows[p.name] = [t, p.level, d.xp, d.hp, d.mp, d.kills, d.deaths, m ? m.dmg.done.net : 0, m ? m.dmg.taken.net : 0, m ? m.heal.done.net : 0, income, d.trips,
 					m ? m.dmg.done.raw : 0, m ? m.heal.done.raw : 0, m ? m.dmg.taken.raw : 0];
@@ -1705,6 +1787,8 @@ class Live {
 				maps: Object.fromEntries(Object.entries(s.maps).map(([k, ms]) => [k, +Math.min(1, ms / Math.max(1, measured)).toFixed(3)])),
 				gear, gear_stat, stats: statsOf(p), history: s.history || null, measured_ms: measured, online: here, sessions: this.sessions[p.name] || null,
 				role: this.roleOf(p), code_status: this.codes[p.name] ? this.codes[p.name].status : null, modes_from: this.codes[p.name] ? this.codes[p.name].from : null,
+				...(this.outside.has(p.name) ? { outside: true } : {}),
+				log: this.logs[p.name] ? this.logs[p.name].last : null, log_n: this.logs[p.name] ? { lines: this.logs[p.name].lines, errors: this.logs[p.name].errors, console: this.logs[p.name].console } : null,
 				inventory: (p.items || []).map((it) => (it ? { name: it.name, q: it.q, level: it.level, stat_type: it.stat_type, p: typeof it.p === "string" ? it.p : undefined } : null)),
 				// now: hp and mp, the condition keys on it, its CODE's mode; kills by type and the last one's t, from the base
 				hp: p.hp, mp: p.mp, s: Object.keys(p.s || {}).sort(), mode: here && this.modeTotals[p.name] ? this.modeTotals[p.name].cur ?? null : null,
@@ -1783,7 +1867,7 @@ class Live {
 		const coarse = this.coarse,
 			gr = this.grid;
 		const out = {
-			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 3,
+			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 6,
 			precision: { dmg_done: "net", dmg_taken: "net", heal: "net", overkill: "exact", overheal: "exact", items: "exact", gold: "exact", gold_other: "exact", mana_by_skill: "exact",
 				sample_ms: coarse ? null : SAMPLE_MS, modes: coarse ? "coarse" : "exact", grid: coarse ? null : "exact", attrib: coarse ? null : "exact" },
 			history_cols: HISTORY_COLS, roster,
@@ -1798,7 +1882,7 @@ class Live {
 				max: sorted.length ? sorted[sorted.length - 1] : null,
 			},
 			load: { now: done || !recent ? null : recent.load, avg: loadAvg },
-			gold: { start: base ? base.gold : gold, now: gold },
+			gold: { start: base ? base.gold : gold, now: gold, ...(this.outsideAccounts.length ? { outside: this.outsideAccounts } : {}) },
 			kills: { total: sum(kills), by_type: kills, others: { total: sum(okills), by_type: okills, by: since(this.okBy, base && base.okBy) } },
 			deaths: { total: this.deaths.length - (base ? base.deaths : 0), groups: [...groups.values()].sort((a, b) => b.n - a.n).slice(0, 60), recent: measuredDeaths.slice(-10).map(({ v: dv, ...d }) => ({ ...d, t: rel(dv) })) },
 			party: { members, merchant, merchant_in_party: this.party.merchant_in, formed_ms: members.length > 1 ? this.party.formed : null, party_ms: this.party.ms, groups: partyGroups, history: this.party.history },
@@ -1843,6 +1927,7 @@ class Live {
 	goldOf(list) {
 		const env = this.sim.env,
 			banks = new Map();
+		list = list.filter((p) => !this.outside.has(p.name)); // (an account out of the totals: its characters and bank)
 		for (const p of list) if (p.owner && p.user && p.user.gold != null) banks.set(p.owner, p.user.gold);
 		for (const p of list)
 			if (p.owner && !banks.has(p.owner))
@@ -1917,4 +2002,4 @@ function liveOf(sim, o) {
 	}
 }
 
-module.exports = { Live, liveOf, reserveId, HISTORY_COLS, GRID_COLS, STATS, GEAR };
+module.exports = { Live, liveOf, reserveId, gearOf, HISTORY_COLS, GRID_COLS, STATS, GEAR };

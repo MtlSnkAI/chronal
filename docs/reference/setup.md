@@ -144,6 +144,7 @@ farm }]`; anything else passes through to the CODE.
 | `bank` | a new account's | `{ "from": <export> }` (its bank gold, packs, `unlocked` rooms and claimed `rewards`; other keys are left out, with a warning) or `{ "gold": 5000, "items0": [], ..., "unlocked": { "bank_b": true }, "rewards": [] }`; none: 1000 gold, two empty packs. A bank with packs in `bank_b` (items8-23) or `bank_u` (items24+) gets that room unlocked (an API pull's has no `unlocked`) |
 | `cash` | the bank export's account cash, else 0 | the account's shells (a whole number) |
 | `linked` | `null` (a web account) | `{ "platform": "steam" \| "mas", "pid": <id>, "newcomer": "auto" \| "claimed" }`: a Steam- or MAS-linked account (pid: a fixed 17 digits per account by default). Its logins have an auth id: the Newcomers' Blessing (+10 luck, gold and xp for 7 days, the first drop's 100k gold and items) for an account younger than 100 hours unless `"claimed"`, New Player and Lone Wolf grouped by the pid, and 3 x 12 fighters from one IP (3 per pid). A live export can't tell, so set it |
+| `totals` | `true` | `false`: its characters' and its bank's gold out of the run's gold totals (the snapshot's `gold`, the party's sums, steering's `party`, `chronal new`'s rates), e.g. a market or observer account; its characters still have their own numbers. Not part of the setup key |
 | `storage` | `{}` | what the CODE's `get(key)` returns at the start; `null` unsets |
 | `local_storage` | `{}` | raw `localStorage` keys (text) |
 

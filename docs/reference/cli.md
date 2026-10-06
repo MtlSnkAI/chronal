@@ -49,8 +49,11 @@ chronal run --code my.js [--dir DIR] --class ranger [--name N] [--level 40] [--a
 - At its end (done, stopped or halted) the run writes its state ([state exports](export.md)) to `<id>.state/end/`; the
   dashboard's Export state and a steering entry's `export` write one while it runs.
 - `--result`: `{ seed, warm, minutes, vmin, speed, real_s, halted, setup, live, state, characters: { <name>: ... }, fighter,
-  merchant }` (`state`: the end state's directory); per character its level and start level, xp gained and per hour, gold and gold gained, kills, deaths,
-  map, mode, Lone Wolf, gear and stats at the end; `fighter` is the first non-merchant's.
+  merchant }` (`state`: the end state's directory); per character, named as the snapshot names them: `level`,
+  `start_level`, `xp_gained` and `xp_h`, `xp` and `max_xp` (in its level), `gold`, `gold_gained`, `kills`, `deaths`,
+  `map`, `mode`, `lonewolf`, `gear` and `gear_stat`, its stats at the end (`goldm`, `luckm`, `xpm`: as they were then,
+  conditions such as citizens' auras and mluck in), `mult_avg` (their mean over the measured part; null without live
+  snapshots), `online`, `outside` (an account out of the totals); `fighter` is the first non-merchant's.
 
 ## chronal continue
 

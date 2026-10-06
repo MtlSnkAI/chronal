@@ -76,4 +76,26 @@ function guarded(ctxs, clock, hub, fn) {
 	return { value, impure };
 }
 
-module.exports = { readMode, readStatus, readRole, modeExpr, guarded, STATUS_MS, STATUS_MAX, ROLES, WHY };
+// The game log's new lines (window.game_logs: [message, color], bot mode keeps them all; clear_game_logs() makes a new
+// array): a tap per page -> tap(win) = [[kind, text]] since its last call. kind "pageerror" for the error colours (a
+// CODE's uncaught error, the game's code_error), else ""; text without HTML, at most LOG_TEXT characters.
+const LOG_ERR = new Set(["#ff0000", "#e13758", "red"]),
+	LOG_TEXT = 300,
+	LOG_KEEP = 30; // lines a snapshot keeps per character
+function logTap() {
+	let arr = null,
+		i = 0;
+	return (win) => {
+		const a = win && win.game_logs;
+		if (!Array.isArray(a)) return [];
+		if (a !== arr || a.length < i) (arr = a), (i = 0);
+		const out = [];
+		for (; i < a.length; i++) {
+			const l = a[i] || [];
+			out.push([LOG_ERR.has(String(l[1] || "").toLowerCase()) ? "pageerror" : "", String(l[0] ?? "").replace(/<[^>]*>/g, "").slice(0, LOG_TEXT)]);
+		}
+		return out;
+	};
+}
+
+module.exports = { readMode, readStatus, readRole, modeExpr, guarded, logTap, LOG_TEXT, LOG_KEEP, STATUS_MS, STATUS_MAX, ROLES, WHY };

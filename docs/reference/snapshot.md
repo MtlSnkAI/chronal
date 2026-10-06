@@ -1,10 +1,10 @@
-# Live snapshot schema v2.3
+# Live snapshot schema v2.6
 
 What a run writes into a live dir while it runs, and what the dashboard (`dashboard/server.js`) and
 `tools/live_check.js` read. `sim/live.js` writes it for every `chronal run` run (the live dir: `--live DIR`, else
 config `live_dir`; `--no-live`: none).
 
-A snapshot says `schema: 2, schema_minor: 3`. The input of a run, the run setup (`chronal-setup/1`), is described in
+A snapshot says `schema: 2, schema_minor: 6`. The input of a run, the run setup (`chronal-setup/1`), is described in
 docs/reference/setup.md; `chronal example` prints an annotated one.
 
 ## 1. Files in a live dir
@@ -59,7 +59,7 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `versions` | `{ sim, code, code_hash }`: git version of the simulator (`<commit>[+<diff hash>]`: the last commit of the files that change what a run does, and a hash of their uncommitted diff; `sim/`, `lib/` and `codes/` but `sim/g_data.js`, `lib/compose.js`, `lib/pull.js`, `lib/example.js` and `lib/install.js`), git version of the first character's CODE directory ("?" outside a repo; a run without a setup: null), hash over every character's CODE (section 9) |
 | `setup` | `{ format, file, name, from, hash }` (section 9); absent for runs without a setup |
 | `setup_key` | hash of what defines the run (section 9: the setup without its run knobs, name, strategy and notes, plus the simulator version; a run without a setup: null): runs of one setup with other seeds or durations share it |
-| `schema`, `schema_minor` | `2`, `3` |
+| `schema`, `schema_minor` | `2`, `6` |
 | `precision` | how each family was measured (below) |
 | `history_cols` | column names of the history rows (section 7) |
 | `roster` | the run's characters in run order (section 5) |
@@ -70,7 +70,7 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `trips_available` | whether merchant trips are measured (`false` in the single-thread Sim) |
 | `speed` | `{ now, avg, median, min, max }`: game ms per real ms, now (since the previous snapshot; null when done), over the measured part, and the median, lowest and highest of the snapshots' |
 | `load` | `{ now, avg }`: per thread the share of real time it was busy (the busiest limits the speed) (threads mode) |
-| `gold` | `{ start, now }`: every character's gold plus each account's bank gold, at the base and now |
+| `gold` | `{ start, now, outside? }`: every character's gold plus each account's bank gold, at the base and now; `outside`: the accounts left out (`accounts.<k>.totals` false: their characters and bank) |
 | `kills` | `{ total, by_type, others }`: monsters the run's characters killed since the base (last hits); `others`: `{ total, by_type, by: { <killer>: n } }`, the server's other kills (the game's fighting NPCs, e.g. Baron and Cunn; a killer is an NPC's name, a monster's type or `?`) |
 | `deaths` | `{ total, groups, recent }`: groups by character, map, ~100 px and killer (`{ name, map, x, y, by, n, first, last, level }`, at most 60), the last 10 (`{ name, level, map, x, y, by, t }`) |
 | `party` | section 5 |
@@ -183,6 +183,8 @@ merchant: { name, trips: [ { t_out, t_back, met, served } ], per_fighter: { <fig
 | `hp`, `mp`, `s`, `mode` | now: hp and mp, the condition keys on it (`character.s`, sorted), its CODE's `chronal.mode` (null: none, or not in game) |
 | `kills_by`, `last_kill` | its last hits by monster type since the base (`kills` = their sum); the last one's t (game s since the base; null: none) |
 | `role` | the setup's explicit role, else the CODE's `chronal.role`, else by class |
+| `outside` | `true` for a character of an account out of the totals (`accounts.<k>.totals` false); the roster's row has `totals: false` |
+| `log`, `log_n` | its game log's last 30 lines `[[v, kind, text]]` (`v` the world clock's ms; `kind` `"pageerror"` for a CODE's uncaught error and the game's code_error lines, `"console"` for its page's console errors and warnings, else `""`; `text` without HTML, at most 300 characters) and counts since the start `{ lines, errors, console }` (the single-thread Sim: no console, it goes to the run's stderr); null before its first line |
 | `code_status`, `modes_from` | the last status the CODE reported (`chronal.status`, a JSON tree; over 64 KB `{ truncated: true, bytes }`), null without one; `"chronal"` or null |
 
 **Measured since the base**
@@ -197,9 +199,9 @@ merchant: { name, trips: [ { t_out, t_back, met, served } ], per_fighter: { <fig
 | `dmg` | `done { raw, net }`; `by_skill { k: { raw, net, hits, crits, misses, casts } }`; `by_target { type: { raw, net, hits } }`; `taken { raw, net }`; `taken_by { cause: { raw, net, hits } }` (cause: monster type, player, `burn`, `dreturn`, `reflect`...; hits include fully absorbed ones); `taken_mp` (the mana shield's part); `avoided { miss, evade, avoid }`; `overkill` = done raw - net. Its own damage return counts as damage done (`dreturn`) |
 | `heal` | `done`, `by_skill` (with `casts`), `by_target`, `received`, `received_by { <healer's name> | <potion> | regen_hp | lifesteal: { raw, net, hits } }`, `overheal` = done raw - net |
 | `mana` | `spent`, `by_skill { skill: mp }`, `gained { pots, regen, steal, other }` (net) |
-| `items` | `looted`, `consumed` (drunk, used, craft inputs), `bought { i: { q, gold } }`, `sold { i: { q, gold } }`, `sent { i: { to: q } }`, `received { i: { from: q } }`, `upgraded { i: { ok, fail, lost } }`, `compounded { i: { ok, fail } }`, `exchanged` (inputs), `crafted`, `mluck_dupes` (the merchant's copies), `from_exchange`, `other` (other gains, e.g. market parcels) and `held` (what it holds now minus at the base, by name: bag, gear, stand, and the bank for the merchant) |
-| `gold_flow` | in: `loot`, `sold`, `stand`, `received`, `other`; out: `bought` (Ponty and bank packs included), `craft` (craft and dismantle), `sent`, `other_out`; `banked` = deposits - withdrawals. `gold - gold_start = loot + sold + stand + received + other - bought - craft - sent - other_out - banked` |
-| `income` | loot + sold + stand |
+| `items` | `looted`, `consumed` (drunk, used, craft inputs), `bought { i: { q, gold } }`, `sold { i: { q, gold } }` (NPCs), `stand_bought { i: { q, gold } }` (from a merchant's stand, or its own buy order filled), `stand_sold { i: { q, gold, tax } }` (at its stand, or into another's buy order; gold after tax), `sent { i: { to: q } }`, `received { i: { from: q } }`, `upgraded { i: { ok, fail, lost } }`, `compounded { i: { ok, fail } }`, `exchanged` (inputs), `crafted`, `mluck_dupes` (the merchant's copies), `from_exchange`, `other` (other gains, e.g. market parcels) and `held` (what it holds now minus at the base, by name: bag, gear, stand, and the bank for the merchant) |
+| `gold_flow` | in: `chest` (a chest's own gold: its gold x goldm x share, after tax), `egold` (the monster's egold, its share), `enc` (encouragement receipts: New Player's, Lone Wolf's gold), `sold`, `stand` (its sales to others, after tax), `received`, `other`; out: `bought` (NPCs: Ponty and bank packs included), `traded` (bought at stands, its buy orders filled), `craft` (craft and dismantle), `sent`, `other_out`; `banked` = deposits - withdrawals. `gold - gold_start = chest + egold + enc + sold + stand + received + other - bought - traded - craft - sent - other_out - banked`; `chest + egold + enc` = the server's `t.cgold` (the chest's tax split between its two parts by their shares) |
+| `income` | chest + egold + enc + sold + stand |
 | `chests` | `{ opened, dry, stale, gone }`: chests it opened; dry (opened from beyond 400 px) and stale (older than 8 min) pay with goldm 1; gone: already opened |
 | `gold_start`, `xp_award`, `xp_lost` | gold at the base; xp awarded by kills (level-ups inside); xp lost to deaths |
 | `modes` | `{ mode: ms }`: time per CODE mode (`chronal.mode`), each rounded to the ms, their sum at most `measured_ms`; null for a CODE that reports none |
@@ -238,10 +240,16 @@ apart, the last one the latest; over 300 rows the step doubles and the rows are 
 **The items' events (`<id>.items.ndjson`, `items_log: { file, lines, bytes, capped }`):** a line per event from the base
 on, `t` measured s, `k` its kind, `who` the character:
 - `loot`: `item`, `level` (when it has one), `q`;
-- `upgrade`, `compound`: `item`, `from` and `to` (the levels tried), `ok`, `lost` (an upgrade's item gone);
-- `stat`: a stat scroll's: `item`, `stat`, `ok`;
+- `upgrade`, `compound`: `item`, `from` and `to` (the levels tried), `ok`, `lost` (an upgrade's item gone); its roll:
+  `scroll`, `offering`, `chance` (the server's, grace in; it can pass 1), `roll` (a success: `roll <= chance`), and the
+  grace before it: `grace` (the item's; a compound's: its three items'), `og` (the character's offering grace), an
+  upgrade's `ug` (`[the character's, the server's]` upgrade grace at the level tried);
+- `stat`: a stat scroll's: `item`, `stat`, `ok`, `scroll`;
+- `trade`: a sale at a merchant's stand (`via: "stand"`, trade_buy) or into a buy order (`via: "wish"`, trade_sell):
+  `who` the seller, `to` the buyer, `item`, `level`, `stat_type`, `q`, `price` (before the seller's tax), `tax`; one
+  per trade where either side is the run's;
 - `shiny`: an ingot's or a nugget's roll on an item with no scroll (its level stays): `item`, `level`, `offering`, `ok`
-  (shiny);
+  (shiny), `chance`, `roll`;
 - `give`: a handover: `to`, `item`, `level`, `q`; `gold`: `to`, `amount`.
 
 Only appended to; past 16 MB a last `{ t, k: "cap" }` and no more (`capped`). The events add up to the ledgers
@@ -318,7 +326,7 @@ Every `chronal run` run runs a setup and writes, beside `<id>.json`:
 ## 12. Checking a snapshot
 
 `node tools/live_check.js <dir>/<id>.json [RESULT.json]` reconciles a sim snapshot: damage net = the server's
-`mdamage`, loot gold = its `cgold`, xp awards = its `xp`, the gold identity, held items = the item flows (skipped with
+`mdamage`, chest + egold + enc gold = its `cgold`, xp awards = its `xp`, the gold identity, held items = the item flows (skipped with
 a note without `items.held`), by-skill and by-target sums, net <= raw, time counters <= measured, `on` against the
 totals, Angel's gold, the timeline against `conditions`, the grid (its last row = the snapshot), history, party sums,
 run control, `world.age_ms` and `world.mlevels` (their shape; base once measured, end once

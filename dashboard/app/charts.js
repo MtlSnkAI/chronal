@@ -380,7 +380,7 @@ function onoff(w, S) {
 	const offNote = base ? "" : " (off: needs a condition on all the run to count the rest)";
 	const A = on("citizen4aura");
 	if (msOn(A) > 0) {
-		const ms = msOn(A), ch = sum(A, (o) => o && o.chests), g = sum(A, (o) => o && o.loot_gold), gAll = sum(F, (p) => { const f = p.gold_flow; return f && typeof f === "object" ? f.loot : null; }), x10 = sum(A, (o) => o && o.x10), x50 = sum(A, (o) => o && o.x50), ex = F.filter((p) => p.exact && Number.isFinite(p.exact.angel_gold));
+		const ms = msOn(A), ch = sum(A, (o) => o && o.chests), g = sum(A, (o) => o && o.loot_gold), gAll = sum(F, (p) => { const f = p.gold_flow; return f && typeof f === "object" ? num(f.chest) + num(f.egold) + num(f.enc) : null; }), x10 = sum(A, (o) => o && o.x10), x50 = sum(A, (o) => o && o.x50), ex = F.filter((p) => p.exact && Number.isFinite(p.exact.angel_gold));
 		cards.push(html`<section class="ocard"><div class="lh"><span class="ic">${mon("Angel", 22) || icon("citizens")}</span><b>Angel</b><span class="gu">gold +200 for the chest opener</span></div><table class="itab otab"><tbody>${th}
 			${row("time", ms / all, 1 - ms / all, (v) => pctU(clamp01(v)), "share of the characters' time with Angel's aura", "n")}${row("chests", ch, opened - ch, (v) => fmtN(v, 0), "chests the characters opened with and without the aura (n)", "n")}
 			${row("gold/chest", ch > 0 ? g / ch : null, opened - ch > 0 ? (gAll - g) / (opened - ch) : null, (v) => fmtN(v), "chest gold paid to the party per chest opened", "", Math.min(ch, opened - ch))}

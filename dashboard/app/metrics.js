@@ -7,12 +7,13 @@ import { ART, icon, iconFit, skIcon, mon, weaponOf, FF } from "./art.js";
 
 // ---- one character's totals over the measured part. Raw everywhere: every amount is what the server reported
 // (overkill and overheal included); overkill and overheal are their own numbers.
-// gold flows: in (>= 0) loot, sold, stand, received, other; out (>= 0) bought, craft, sent, other_out; banked =
+// gold flows: in (>= 0) chest (a chest's own gold), egold (the monster's), enc (encouragement receipts), sold, stand,
+// received, other; out (>= 0) bought (NPCs, bank packs), traded (stands, buy orders), craft, sent, other_out; banked =
 // deposits - withdrawals
-export const GOLD_IN = ["loot", "sold", "stand", "received", "other"];
+export const GOLD_IN = ["chest", "egold", "enc", "sold", "stand", "received", "other"];
 const flows = (g) => (g && typeof g === "object" ? g : null);
 // gold now minus at the base, less what the named flows explain (0 when the ledger closes); null without gold_start
-export const residual = (p, f) => (f && Number.isFinite(p.gold_start) && Number.isFinite(p.gold) ? p.gold - p.gold_start - GOLD_IN.reduce((a, k) => a + num(f[k]), 0) + ["bought", "craft", "sent", "other_out", "banked"].reduce((a, k) => a + num(f[k]), 0) : null);
+export const residual = (p, f) => (f && Number.isFinite(p.gold_start) && Number.isFinite(p.gold) ? p.gold - p.gold_start - GOLD_IN.reduce((a, k) => a + num(f[k]), 0) + ["bought", "traded", "craft", "sent", "other_out", "banked"].reduce((a, k) => a + num(f[k]), 0) : null);
 // potions drunk since the base: items.consumed
 export const potsOf = (p) => Object.fromEntries(Object.entries((p.items && p.items.consumed) || {}).filter(([k, v]) => /pot/.test(k) && Number.isFinite(v)));
 const rawOf = (o) => (o && typeof o === "object" && Number.isFinite(o.raw) ? o.raw : null);
@@ -24,7 +25,7 @@ function cstat(p) {
 	return { p, name: p.name, type: p.type, xp: p.xp_gained || 0, kills: p.kills || 0, credits: p.credits ?? null, deaths: p.deaths || 0, hp: p.hpots || 0, mp: p.mpots || 0,
 		dmg: rawOf(dn), overkill, taken: d ? rawOf(d.taken) : null, heal: rawOf(hd), overheal, ohBase, recv: hl ? rawOf(hl.received) : null,
 		hits: sk.reduce((a, e) => a + num(e.hits), 0), crits: sk.reduce((a, e) => a + num(e.crits), 0), misses: sk.reduce((a, e) => a + num(e.misses), 0), trips: p.trips || 0,
-		mana: p.mana ? p.mana.spent ?? null : null, combat: p.combat_ms != null ? p.combat_ms / 1000 : null, income: g ? num(g.loot) + num(g.sold) + num(g.stand) : null, spent: g ? num(g.bought) + num(g.craft) : null, g };
+		mana: p.mana ? p.mana.spent ?? null : null, combat: p.combat_ms != null ? p.combat_ms / 1000 : null, income: g ? num(g.chest) + num(g.egold) + num(g.enc) + num(g.sold) + num(g.stand) : null, spent: g ? num(g.bought) + num(g.traded) + num(g.craft) : null, g };
 }
 // supply handovers to each character (a finished trip with something or gold sent to it): per_fighter.deliveries
 function delivered(w) {
@@ -42,7 +43,9 @@ export function statsOf(w) {
 	if (s) return s;
 	const hrs = (w.measured_ms || 0) / H, P = membersOf(w).map(cstat), mp = w.players.find((p) => p.type === "merchant");
 	s = { hrs, secs: hrs * 3600, per: (v, d = hrs) => (v != null && d > 0 ? v / d : null), P, M: P.find((c) => c.p === mp) || null, party: {}, dv: delivered(w), pots: {} };
-	for (const k of ["xp", "kills", "credits", "deaths", "hp", "mp", "dmg", "overkill", "taken", "heal", "overheal", "recv", "mana", "combat", "income", "spent"]) s.party[k] = tot(P, (c) => c[k]);
+	// (the party's sums leave out an account out of the totals: a market account's characters)
+	const In = P.filter((c) => !c.p.outside);
+	for (const k of ["xp", "kills", "credits", "deaths", "hp", "mp", "dmg", "overkill", "taken", "heal", "overheal", "recv", "mana", "combat", "income", "spent"]) s.party[k] = tot(In, (c) => c[k]);
 	for (const c of P) for (const [k, n] of Object.entries(potsOf(c.p))) s.pots[k] = (s.pots[k] || 0) + n;
 	STATS.set(w, s);
 	return s;
@@ -89,6 +92,7 @@ export const REG = [
 	{ id: "delivh", label: "Deliveries/h", hu: "deliveries/h", g: "Supply", ic: () => icon("inventory"), k: "rate_h", of: (c, w, s) => (s.dv ? (c === s.M ? Object.values(s.dv).reduce((a, n) => a + num(n), 0) : 0) : null), better: 1, what: "supply handovers per game hour: a trip that handed a character something or gold" },
 	{ id: "lonewolf", label: "Lone Wolf", hu: "Lone Wolf", g: "Buffs", ic: () => icon("encouragement_lonewolf"), k: "share", of: (c, w) => lwOf(c.p, w), party: (w, s) => { const xs = activeOf(s).map((c) => lwOf(c.p, w)).filter((v) => v != null); return xs.length ? xs.reduce((a, v) => a + v, 0) / xs.length : null; }, better: 0, what: "share of the time with Lone Wolf (x3 xp, gold and luck), the mean over the characters that gained xp or fought" },
 	{ id: "inparty", label: "In party", hu: "in party", g: "Buffs", ic: () => icon("citizens"), k: "share", of: (c, w) => (c.p.party && Number.isFinite(c.p.party.ms) && w.measured_ms > 0 ? clamp01(c.p.party.ms / w.measured_ms) : null), party: (w) => (w.party && Number.isFinite(w.party.party_ms) && w.measured_ms > 0 ? clamp01(w.party.party_ms / w.measured_ms) : null), better: 0, what: "share of the time the run's party was together in one server party" },
+	{ id: "errors", label: "CODE errors", hu: "errors", g: "Run", ic: () => icon("condition_bad"), k: "count", of: (c) => (c.p.log_n ? c.p.log_n.errors : null), better: -1, d: 0, what: "CODE errors in the game log: uncaught errors, the game's code_error lines (since the start)" },
 	{ id: "speed", label: "Sim speed", hu: "x", g: "Run", ic: () => FF(), k: "count", party: (w) => (Number.isFinite(w.speed.avg) ? w.speed.avg : null), better: 1, d: 0, what: "average speed: game time per real time" },
 	{ id: "hours", label: "Game time", hu: "", g: "Run", ic: () => icon("stats"), k: "total", party: (w) => (w.measured_ms || 0) / H, fmt: (v) => fmtG(v * H), better: 0, what: "measured game time" },
 ];
@@ -354,7 +358,7 @@ export function drillEntries(w, s, m, cs, by) {
 // an entry's icon: a character's weapon, a monster, a skill or condition, an item
 export function entryIcon(w, k) {
 	const p = w.players.find((x) => x.name === k);
-	return p ? weaponOf(p, 22) : ART.monsters[k] ? mon(k, 22) : ART.skills[k === "burn" ? "burned" : k] ? skIcon(k, 20) : ART.items[k] ? iconFit(k, 22) : k === "loot" ? icon("gold") : k === "regen" ? skIcon("regen_mp") : k === "pots" ? icon("mpot1") : null;
+	return p ? weaponOf(p, 22) : ART.monsters[k] ? mon(k, 22) : ART.skills[k === "burn" ? "burned" : k] ? skIcon(k, 20) : ART.items[k] ? iconFit(k, 22) : k === "chest" || k === "egold" || k === "enc" ? icon("gold") : k === "regen" ? skIcon("regen_mp") : k === "pots" ? icon("mpot1") : null;
 }
 // ---- the Data tab's metrics: per family its total and its rate, each named as itself (DPS: damage per second); m: its
 // meter (per character, its breakdowns; none: not as meters), g: its column over time (charts.js; none: not over time),

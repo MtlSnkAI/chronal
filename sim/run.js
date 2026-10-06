@@ -37,6 +37,7 @@ const { codeSet, missingEntries, parseMissing, chooseMissing } = require("../lib
 const LIB = require("../lib/library");
 const { startSetup, steerer, STAT, STATS, xpTotal } = require("./start");
 const { endState, writeState } = require("./export");
+const { gearOf } = require("./live");
 
 const USAGE = `usage: chronal run <setup.json | <id>.setup.json> [--duration 2h] [--warmup 2m] [--world-age 2h] [--ping 18] [--seed N] [--start ISO]
                   [--age-days N] [--tag T] [--live DIR | --no-live] [--result out.json] [--no-build] [--current-code]
@@ -299,7 +300,8 @@ const main = (argv) => (async () => {
 		if (x && x.error) console.error(`warning: ${x.what}: ${x.error} (read as false)`);
 	if (sim.failed) await failed();
 	console.log(`${sim.halted ? `${(res.virtualMs / 60e3).toFixed(1)} of ${duration / 60e3} vmin (halted: ${sim.halted})` : `${(res.virtualMs / 60e3).toFixed(1)} vmin`} after ${warm / 60e3} warm-up: ${Math.round(res.speed)}x (${(res.realMs / 1000).toFixed(1)} s real)`);
-	const characters = {};
+	const characters = {},
+		snapNow = sim.live ? sim.live.peek() : null;
 	for (const rc of resolved.characters) {
 		const c = now(rc.name);
 		let a, extra;
@@ -310,7 +312,7 @@ const main = (argv) => (async () => {
 		} else if (left[rc.name]) ({ a, x: extra } = left[rc.name]);
 		else {
 			// never in game (online: false, not started)
-			characters[rc.name] = { name: rc.name, ctype: rc.class, level: rc.state.level, start_level: rc.state.level, xp: 0, xp_h: 0, gold: rc.state.gold, gold_gained: 0, kills: 0, deaths: 0, online: false };
+			characters[rc.name] = { name: rc.name, ctype: rc.class, level: rc.state.level, start_level: rc.state.level, xp_gained: 0, xp: rc.state.xp || 0, xp_h: 0, gold: rc.state.gold, gold_gained: 0, kills: 0, deaths: 0, online: false };
 			console.log(`${rc.name.padEnd(12)} L${rc.state.level} never in game`);
 			continue;
 		}
@@ -318,7 +320,11 @@ const main = (argv) => (async () => {
 		const b = q0[rc.name] || { l: rc.state.level, xp: rc.state.xp, g: rc.state.gold, kills: 0, deaths: 0 };
 		const gained = xpTotal(levels, a) - xpTotal(levels, b),
 			xp_h = res.virtualMs ? (gained / res.virtualMs) * 3600e3 : 0;
-		characters[rc.name] = { ...extra, level: a.l, start_level: b.l, xp: gained, xp_h, gold: a.g, gold_gained: a.g - b.g, kills: a.kills - b.kills, deaths: a.deaths - b.deaths, map: a.map, mode: a.mode, lonewolf: a.lw, slots: a.slots, online: !!c };
+		// (as the snapshot names them: xp_gained, xp in the level, gear and gear_stat; goldm/luckm/xpm the end's, mult_avg
+		// the measured part's time-weighted mean: live snapshots in client threads only)
+		const sp = snapNow && snapNow.players.find((x) => x.name === rc.name);
+		characters[rc.name] = { ...extra, level: a.l, start_level: b.l, xp_gained: gained, xp: a.xp, max_xp: a.max, xp_h, gold: a.g, gold_gained: a.g - b.g, kills: a.kills - b.kills, deaths: a.deaths - b.deaths, map: a.map, mode: a.mode, lonewolf: a.lw,
+			...gearOf(a.slots), mult_avg: (sp && sp.mult_avg) || null, online: !!c, ...((resolved.accounts[rc.account] || {}).totals === false ? { outside: true } : {}) };
 		console.log(`${rc.name.padEnd(12)} L${a.l} xp ${(gained / 1e6).toFixed(2)}M (${(xp_h / 1e6).toFixed(1)}M/h) kills ${a.kills - b.kills} deaths ${a.deaths - b.deaths} gold ${a.g - b.g >= 0 ? "+" : ""}${a.g - b.g} ${a.map} ${a.mode}${a.lw ? " lone wolf" : ""}${extra.party ? " party " + extra.party : ""}${c ? "" : ` (left: ${left[rc.name].reason})`}`);
 	}
 	const fighter = resolved.characters.find((c) => c.class !== "merchant"),

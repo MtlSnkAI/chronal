@@ -270,8 +270,9 @@ export function Meters({ w, m, drill, go, fixed }) {
 		<${PTag} type=${pdr ? "button" : null} data-drill=${pdr ? "*" : null} class="mrow party" onClick=${pdr ? () => drillTo("*") : null}><span class="ic">${icon("citizens")}</span><span class="nm">Party</span><span class="v">${f1(total)}</span><span class="r">${f2(c2of(rows))}</span><span class="p">${total > 0 ? "100%" : "-"}</span>${cv(pdr)}</${PTag}>
 		${[...rows, ...rest].map(([c, v]) => row(c, v))}</div>${total ? null : html`<p class="mnote">${m.none}</p>`}${acct}</section>`;
 }
-// items per item: looted, used (drunk, scrolls...), bought, sold, sent, received; the party's or one character's
-const ICOLS = ["looted", "consumed", "bought", "sold", "sent", "received"];
+// items per item: looted, used (drunk, scrolls...), bought, sold (NPCs), traded in and out (stands, buy orders), sent,
+// received; the party's or one character's
+const ICOLS = ["looted", "consumed", "bought", "sold", "stand_bought", "stand_sold", "sent", "received"];
 function ItemsWho({ w }) {
 	const S1 = statsOf(w), who = S1.P.some((c) => c.name === V.itemsWho) ? V.itemsWho : "party", cs = who === "party" ? S1.P : S1.P.filter((c) => c.name === who);
 	const seg = html`<div class="seg sm iwho" role="group" aria-label="Whose items"><button type="button" aria-pressed=${who === "party"} onClick=${() => setV({ itemsWho: "party" })}>${icon("citizens")}Party</button>
@@ -292,11 +293,11 @@ function ItemsWho({ w }) {
 	if (!rows.size) return [seg, html`<p class="mnote">- no items measured</p>`];
 	const body = [...rows].sort((a, b) => b[1].reduce((x, y) => x + y, 0) - a[1].reduce((x, y) => x + y, 0)).map(([name, r]) => html`<tr><td><span>${iconFit(name, 22)}${name}</span></td>
 		${r.map((v, i) => { const t = tip.get(name + ICOLS[i]); return html`<td data-tip=${t && t.length ? t.join("\n") : null}>${!known.has(ICOLS[i]) ? html`<span class="z">-</span>` : v ? fmtN(v, 0) : ""}</td>`; })}</tr>`);
-	return [seg, html`<div class="iscroll"><table class="itab"><tbody><tr><th>item</th><th>looted</th><th>used</th><th>bought</th><th>sold</th><th>sent</th><th>received</th></tr>${body}</tbody></table></div>`];
+	return [seg, html`<div class="iscroll"><table class="itab"><tbody><tr><th>item</th><th>looted</th><th>used</th><th>bought</th><th>sold</th><th data-tip="bought from a merchant's stand, or a buy order filled">traded in</th><th data-tip="sold at its stand, or into a buy order">traded out</th><th>sent</th><th>received</th></tr>${body}</tbody></table></div>`];
 }
 // the items, from the run's items' events (store.js itemsLoad): what was upgraded, compounded or given a stat (per item
 // and step: succeeded, failed, lost; then each try) and each loot (who, what, when); the newest first
-export const ItemsSeg = ({ n }) => html`<span class="seg sm" role="tablist" aria-label="Items"><button role="tab" aria-selected=${V.itab === "up"} onClick=${() => setV({ itab: "up" })}>Upgraded${n ? " " + n[0] : ""}</button><button role="tab" aria-selected=${V.itab === "loot"} onClick=${() => setV({ itab: "loot" })}>Looted${n ? " " + n[1] : ""}</button></span>`;
+export const ItemsSeg = ({ n }) => html`<span class="seg sm" role="tablist" aria-label="Items"><button role="tab" aria-selected=${V.itab === "up"} onClick=${() => setV({ itab: "up" })}>Upgraded${n ? " " + n[0] : ""}</button><button role="tab" aria-selected=${V.itab === "loot"} onClick=${() => setV({ itab: "loot" })}>Looted${n ? " " + n[1] : ""}</button><button role="tab" aria-selected=${V.itab === "trade"} onClick=${() => setV({ itab: "trade" })}>Traded${n && n[2] ? " " + n[2] : ""}</button></span>`;
 function useItems(w) {
 	useEffect(() => void itemsLoad(w), [w]);
 	return w.items_log ? itemLogs.get(w.id) || { ev: [], busy: true } : null;
@@ -323,11 +324,20 @@ const stepOf = (e) => (e.k === "stat" ? (e.stat || "stat") + " scroll" : e.k ===
 const levelOf = (e) => (e.k === "stat" ? 0 : e.k === "shiny" ? e.level : e.from);
 const outcome = (e) => (e.ok ? html`<span class="ok">succeeded</span>` : html`<span class="ko">${e.lost ? "failed, item lost" : "failed"}</span>`);
 function ItemsBox({ w }) {
-	const L = useItems(w), ev = L ? L.ev : [], tries = ev.filter((e) => e.k === "upgrade" || e.k === "compound" || e.k === "stat" || e.k === "shiny"), loot = ev.filter((e) => e.k === "loot");
-	const seg = html`<div class="gh"><${ItemsSeg} n=${[fmtN(tries.filter((e) => e.ok).length, 0), fmtN(loot.reduce((a, e) => a + num(e.q), 0), 0)]} /><span class="gu">${V.itab === "up" ? "each try: its levels and how it went" : "who looted what, and when"}</span></div>`;
+	const L = useItems(w), ev = L ? L.ev : [], tries = ev.filter((e) => e.k === "upgrade" || e.k === "compound" || e.k === "stat" || e.k === "shiny"), loot = ev.filter((e) => e.k === "loot"), trades = ev.filter((e) => e.k === "trade");
+	const seg = html`<div class="gh"><${ItemsSeg} n=${[fmtN(tries.filter((e) => e.ok).length, 0), fmtN(loot.reduce((a, e) => a + num(e.q), 0), 0), trades.length ? fmtN(trades.length, 0) : ""]} /><span class="gu">${V.itab === "up" ? "each try: its levels and how it went" : V.itab === "trade" ? "each sale at a stand or into a buy order: the price before the seller's tax" : "who looted what, and when"}</span></div>`;
 	const none = evNote(w, L);
 	let body;
 	if (none) body = none;
+	else if (V.itab === "trade") {
+		// per item: units and gold each way; then each trade
+		const per = new Map();
+		for (const e of trades) { const r = per.get(e.item) || per.set(e.item, { q: 0, gold: 0, tax: 0, n: 0 }).get(e.item); (r.q += num(e.q)), (r.gold += num(e.price)), (r.tax += num(e.tax)), r.n++; }
+		body = !trades.length ? html`<p class="mnote">no trades in this run</p>` : [html`<div class="iscroll"><table class="itab"><tbody><tr><th>item</th><th>trades</th><th>units</th><th>gold</th><th data-tip="the sellers' tax">tax</th></tr>
+			${[...per].sort((a, b) => b[1].gold - a[1].gold).map(([k, r]) => html`<tr><td><${Itm} name=${k} /></td><td>${fmtN(r.n, 0)}</td><td>${fmtN(r.q, 0)}</td><td>${fmtN(r.gold, 0)}</td><td>${fmtN(r.tax, 0)}</td></tr>`)}</tbody></table></div>`,
+			html`<${Fold} k="+trades" title=${"Each trade (" + fmtN(trades.length, 0) + ")"}><div class="iscroll"><table class="itab"><tbody><tr><th>when</th><th class="l">seller</th><th class="l">buyer</th><th class="l">item</th><th>units</th><th>price</th><th>tax</th><th class="l">how</th></tr>
+				<${Rows} rows=${trades.slice().reverse()} cols=${8} row=${(e) => html`<tr>${when(e)}<td class="l"><${Who} w=${w} name=${e.who} /></td><td class="l"><${Who} w=${w} name=${e.to} /></td><td class="l"><${Itm} name=${e.item} level=${e.level} /></td><td>${fmtN(num(e.q), 0)}</td><td>${fmtN(num(e.price), 0)}</td><td>${fmtN(num(e.tax), 0)}</td><td class="l">${e.via === "wish" ? "buy order" : "stand"}</td></tr>`} /></tbody></table></div></${Fold}>`];
+	}
 	else if (V.itab === "up") {
 		// per item and step: the tries, who tried, how they went
 		const steps = new Map();
@@ -341,8 +351,8 @@ function ItemsBox({ w }) {
 		const list = [...steps.values()].sort((a, b) => a.e.item.localeCompare(b.e.item) || a.e.k.localeCompare(b.e.k) || (a.e.from ?? 0) - (b.e.from ?? 0));
 		body = !tries.length ? html`<p class="mnote">no upgrades or compounds in this run</p>` : [html`<div class="iscroll"><table class="itab"><tbody><tr><th>item</th><th class="l">step</th><th class="l">by</th><th>succeeded</th><th>failed</th><th data-tip="items lost with a failed upgrade">lost</th><th>success</th></tr>
 			${list.map((r) => html`<tr><td><${Itm} name=${r.e.item} level=${levelOf(r.e)} bare /></td><td class="l">${stepOf(r.e)}${r.e.k === "compound" ? html` <small class="gu">compound</small>` : null}</td><td class="l">${[...r.by].map((x) => html`<${Who} w=${w} name=${x} />`)}</td><td>${r.ok || ""}</td><td>${r.fail || ""}</td><td>${r.lost || ""}</td><td>${pct(r.ok / (r.ok + r.fail))}</td></tr>`)}</tbody></table></div>`,
-			html`<${Fold} k="+tries" title=${"Each try (" + fmtN(tries.length, 0) + ")"}><div class="iscroll"><table class="itab"><tbody><tr><th>when</th><th class="l">character</th><th class="l">item</th><th class="l">step</th><th class="l">outcome</th></tr>
-				<${Rows} rows=${tries.slice().reverse()} cols=${5} row=${(e) => html`<tr>${when(e)}<td class="l"><${Who} w=${w} name=${e.who} /></td><td class="l"><${Itm} name=${e.item} level=${levelOf(e)} bare /></td><td class="l">${stepOf(e)}${e.k === "compound" ? html` <small class="gu">compound</small>` : null}</td><td class="l">${outcome(e)}</td></tr>`} /></tbody></table></div></${Fold}>`];
+			html`<${Fold} k="+tries" title=${"Each try (" + fmtN(tries.length, 0) + ")"}><div class="iscroll"><table class="itab"><tbody><tr><th>when</th><th class="l">character</th><th class="l">item</th><th class="l">step</th><th data-tip="the server's chance, grace in (its roll under it: a success)">chance</th><th class="l">outcome</th></tr>
+				<${Rows} rows=${tries.slice().reverse()} cols=${6} row=${(e) => html`<tr>${when(e)}<td class="l"><${Who} w=${w} name=${e.who} /></td><td class="l"><${Itm} name=${e.item} level=${levelOf(e)} bare /></td><td class="l">${stepOf(e)}${e.k === "compound" ? html` <small class="gu">compound</small>` : null}${e.scroll ? html` <small class="gu">${e.scroll}${e.offering ? " + " + e.offering : ""}</small>` : null}</td><td data-tip=${e.roll != null ? "roll " + e.roll + (e.grace != null ? ", item grace " + e.grace : "") + (e.ug ? ", upgrade grace " + e.ug.join(" / ") : "") + (e.og != null ? ", offering grace " + e.og : "") : null}>${e.chance != null ? pct(Math.min(1, e.chance)) : ""}</td><td class="l">${outcome(e)}</td></tr>`} /></tbody></table></div></${Fold}>`];
 	} else {
 		// what was looted (a chip per item: its count), then each loot
 		const per = new Map();
@@ -381,7 +391,7 @@ function CharCard({ w, p, now, rp, v }) {
 	const whole = rp ? " (the run)" : "", deaths = rp ? (v != null ? deathsAt(w, p.name, v, baseOf(w)) : null) : p.deaths;
 	const facts = [html`<div class="sr"><span>Free slots${end}</span><b>${now && now.free != null ? now.free : p.free}</b></div>`, where ? html`<div class="sr wide"><span>Time on${whole}</span><b>${where}</b></div>` : null,
 		p.trips || p.outings ? [html`<div class="sr"><span>Trips${whole}</span><b>${p.trips}/${p.outings}</b></div>`, html`<div class="sr"><span>Out${whole}</span><b>${pct(p.out_share)}</b></div>`] : p.town_visits != null ? html`<div class="sr"><span>Town visits${whole}</span><b>${p.town_visits}</b></div>` : null];
-	return html`<section class="ch" style=${cvar(p.type)}><div class="whohd"><span class="slot">${weaponOf(gear, 24)}</span><span class="chn"><b>${p.name}</b><span class="gu">L${lv} ${p.type}</span></span><${Grave} n=${deaths} /></div>
+	return html`<section class="ch" style=${cvar(p.type)}><div class="whohd"><span class="slot">${weaponOf(gear, 24)}</span><span class="chn"><b>${p.name}</b><span class="gu">L${lv} ${p.type}${p.outside ? html` <small data-tip="its account is out of the run's totals (accounts.<k>.totals false)">outside totals</small>` : null}</span></span><${Grave} n=${deaths} /><${Errs} p=${p} /></div>
 		<${Bars} hp=${now ? now.hp : p.hp} mhp=${now ? now.max_hp : st && st.max_hp} mp=${now ? now.mp : p.mp} mmp=${now ? now.max_mp : st && st.max_mp} xp=${xp} mxp=${mx} dead=${now ? now.rip : p.rip} />
 		<${Sheet} p=${gear} />${conds.length ? html`<${CondIcons} w=${w} cs=${conds} />` : null}
 		${x ? html`<div class="cst">${x.main.map((r) => html`<${Sr} r=${r} />`)}</div>` : html`<p class="mnote">no stats in this snapshot (recorded since 2026-09-26)</p>`}
@@ -391,6 +401,8 @@ function CharCard({ w, p, now, rp, v }) {
 	</section>`;
 }
 const Grave = ({ n, s = 18 }) => (n ? html`<span class="dth">${mon("gravestone", s)}${n}</span>` : null);
+// its CODE's errors in the game log (uncaught errors, the game's code_error lines) and console errors and warnings
+const Errs = ({ p }) => { const n = p.log_n; return n && (n.errors || n.console) ? html`<span class="dth" data-tip=${(n.errors || 0) + " CODE errors in its game log, " + (n.console || 0) + " console errors and warnings (Game log, below)"}>${icon("condition_bad")}${n.errors || 0}</span>` : null; };
 // the game log, newest last; times are game time from the start of the measured part (the chart's 0h00), given the
 // world's virtual clock at the snapshot; else the virtual time of day
 function GameLog({ w, p }) {
