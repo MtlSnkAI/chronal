@@ -10,6 +10,23 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-06
+
+### Fixed
+
+- A recording keeps every session of a character: when its page loaded again (its CODE's `disconnect()`, or the
+  server's after a third death by burn in one session) or it was started again, the recording started over and only
+  the last session could be replayed. A replay now plays through each reload.
+- Replays of runs where a character's page loaded again: a broken last line in its recording's index froze the replay
+  at its first moment. The index now skips such lines, so these replays play (the sessions before the last one stay
+  lost).
+- The dashboard's replay no longer logs a 404 error in the browser's console for each character not in game yet at the
+  replay's moment (its Characters sheet): the sheet is empty then.
+- A replay's console no longer fills with "Weird resolve_deferred issue" errors: the recorded server answers to the
+  recorded CODE's calls are quiet in the replay page.
+- Replay pages no longer load the game's Google Analytics: a replay sent a pageview to Google for every character's
+  frame.
+
 ## [0.6.0] - 2026-10-06
 
 ### Added
@@ -126,7 +143,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 The first release: Adventure Land's real game server and clients on a virtual clock, running your CODE unmodified and
 headless at 100x and more, with a dashboard, replays, and fidelity checks against live.
 
-[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.6.0...develop
+[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.6.1...develop
+[0.6.1]: https://github.com/MtlSnkAI/chronal/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/MtlSnkAI/chronal/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/MtlSnkAI/chronal/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MtlSnkAI/chronal/compare/v0.3.0...v0.4.0

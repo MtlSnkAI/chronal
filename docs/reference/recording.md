@@ -38,7 +38,14 @@ sent. The dashboard shows it on the run's page (Replay), and its charts seek it.
   - the last `player` packet and move, as `[ms, raw]`.
   A seek reads one member.
 - **The index:** the `.idx` is a JSON header line `{ format, name, member_ms }`, then a line per member:
-  `first ms, last ms, byte offset, bytes`. A run still recording has what is written so far.
+  `first ms, last ms, byte offset, bytes`. A run still recording has what is written so far. A line that isn't four
+  numbers is skipped.
+- **Sessions:** a character in game again goes on in the same recording: its page loaded again after a disconnect (its
+  CODE's `disconnect()`, or the server's, e.g. after a third death by burn or a trap in one session), or it was
+  started again with `start_character`. The new page's records start with `a` and the server's `welcome` and `start`;
+  the S line of its first member is the state the last session ended in, and `start` clears the map, entities and
+  chests. The new session's thread holds what it records until the last one's has closed the files (at the end of the
+  game minute), so the members stay in time order.
 - **Times** are the world's virtual clock, the same as the grid's `v`. A chart's `t` (measured s since the base) is
   `v - (row.v - row.t * 1000)` for any grid row.
 - **Record order:** records are in arrival order, and packets arrive with future delivery times, so a member is a few
@@ -53,7 +60,8 @@ sent. The dashboard shows it on the run's page (Replay), and its charts seek it.
 - **The paths** the dashboard hands the viewer, on the dashboard's own port: `/replay/`, `/__rec/`, the character pages,
   the game's `/js/`, `/css/`, `/sounds/`, `/phrases/`, `/data.js`, the images the dashboard doesn't serve (not png,
   jpg or gif), and the API calls the page makes (`servers_and_characters`, `pull_chat`, `pull_chats`). The backend's
-  own address (`base_url`) in what it sends is made the dashboard's.
+  own address (`base_url`) in what it sends is made the dashboard's. The game's Google Analytics scripts (adventure.land's
+  visit counts) are left out of its pages, so a replay sends nothing to Google.
 - `/replay/<run id>/<name>[?t=|?v=][&base=][&max=][&speed=][&paused=1]` redirects to the character's game page
   `/character/<name>/in/US/I/?chronal_replay=<run id>`. The backend serves that page for any name; the viewer puts the
   time warp and the replay script in its head (404 for a run or name without a recording).
@@ -128,8 +136,9 @@ sent. The dashboard shows it on the run's page (Replay), and its charts seek it.
   before v; the last 8 members read are kept) gives the level, XP, HP, MP, gold, gear, stats (live.js `STATS`),
   conditions (`s`, with the time left), the inventory (`items`), the empty slots (`esize`) and the last 100 game log
   and chat lines up to v (rec.js `logAt()`: the `game_log`, `server_message` and `chat_log` packets' messages, from as
-  many members back as it takes). The page fetches it again once the replay's time moved a game second or more,
-  at most twice a real second.
+  many members back as it takes); `null` before the character's first player packet (a character in game from later
+  on), 404 without a recording. The page fetches it again once the replay's time moved a game second or more, at
+  most twice a real second.
 - **Seeking from the charts:** a click on a chart or buff lane (`.gsvg`, `svg.lt`, `.trk svg`) of that run sends
   `seek` with `v = base + t * 1000`. A character's lane (buffs, deaths: `.blane[data-who]`) also switches the replay to
   that character, at the moment clicked; a click on the lane's name only switches. The base comes from the run's grid, loaded for its charts. The frame's `time`
