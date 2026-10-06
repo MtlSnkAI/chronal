@@ -33,6 +33,27 @@ divides a game minute (ping 18: 6 ms; ping 50: 20 ms), which is why a lower ping
 them as it has cores. Its results differ from threads mode (other random streams) and some features need threads
 (switching characters, recordings, per-page storage).
 
+### A host's own client thread
+
+A program that runs chronal's sim itself (`createSim` in `sim/sim.js`, threads mode) can start a character's thread
+from its own script, e.g. to boot the client its own way or run CODE through its own runner:
+`sim.addCharacter({ ..., worker, extra })` (also `declare` and `login`). `worker` is the script's path, used again when
+the character's page loads again or it is started again; `extra` is more `workerData` for it (the sim's own fields
+win). `sim/client_host.js` exports what such a script needs to build a client: `startClient`, `makeWindow`, `run`,
+`exec`, `RUNNER_FILES`, `clientInfo`, `makeStorage`, `putStorage`.
+
+The script speaks `sim/client_worker.js`'s protocol with the main thread:
+- **workerData:** the character's fixture, CODE and files, its clock start and seed, the latency range, the window
+  (`W`), the shared buffers (`ctrl`, `any`, `shared`, `slot`), the ports (`port` for commands and replies, `data` for
+  the socket traffic, `modes` with live snapshots), `rec` when the run records (`{ dir, name, append, wait }`).
+- **Ready:** one reply as soon as it can run (`{ ready: true }`, or `{ err }`).
+- **Commands:** `ctrl[0]` counts the main thread's requests and `ctrl[2]` says which: `0` run its clock to `f64[2]` in
+  lockstep (`Gate`, through windows of `W`), then reply; `2` a message on `port`: `{ t: "q", expr }` (reply
+  `{ value }`), `{ t: "stop" }` (reply, then exit), `{ t: "rec_open" }` (a recording's next session may write now:
+  reply; a thread that records nothing may reply `{ err }`, which is only a warning), `{ t: "prof", on }`.
+- **Replies:** every one posted on `port` with its number `n` (1, 2, ...), then `Atomics.add(ctrl, 1, 1)` and
+  `Atomics.add(any, 0, 1)` with a notify; a missing or out-of-order reply fails the run.
+
 ## Determinism
 
 The same setup, seed, CODE and versions of ChronAL and the game give the same run, event for event:

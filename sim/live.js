@@ -401,7 +401,7 @@ class Live {
 				members = new Set((rs.party && rs.party.members) || []);
 			this.meta = {
 				strategy: SETUP.strategyText(rs), script,
-				versions: { chronal: chronalVersion(), sim: simVersion(), code: first.git ? first.git.commit.slice(0, 7) : first.code_dir || first.file ? gitVersion(first.code_dir || path.dirname(first.file)) : "?", code_hash: SETUP.codeHash(rs) },
+				versions: { chronal: chronalVersion(), game: require("../lib/install").gameCheck().game, sim: simVersion(), code: first.git ? first.git.commit.slice(0, 7) : first.code_dir || first.file ? gitVersion(first.code_dir || path.dirname(first.file)) : "?", code_hash: SETUP.codeHash(rs) },
 				setup: { format: rs.format, file: this.id + ".setup.json", name: rs.name, from: (rs.resolved && rs.resolved.from) || null, hash: SETUP.sideHash(rs) },
 			};
 			// accounts.<k>.totals false (a market account): its characters' and bank's gold out of the run's gold totals
@@ -413,7 +413,7 @@ class Live {
 		} else {
 			this.meta = {
 				strategy: "default", script,
-				versions: { chronal: chronalVersion(), sim: simVersion(), code: null, code_hash: null },
+				versions: { chronal: chronalVersion(), game: require("../lib/install").gameCheck().game, sim: simVersion(), code: null, code_hash: null },
 			};
 		}
 		this.setupKey();
@@ -450,7 +450,7 @@ class Live {
 		return this.setup ? SETUP.strategyText(this.setup.resolved, { formed }) : "default";
 	}
 	setupKey() {
-		this.meta.setup_key = this.setup ? SETUP.setupKey(this.setup.resolved, this.meta.versions.sim) : null;
+		this.meta.setup_key = this.setup ? SETUP.setupKey(this.setup.resolved, this.meta.versions.sim, this.meta.versions.game) : null;
 	}
 	stat(name) {
 		return (this.who[name] ||= { pots: {}, kills: 0, kby: {}, lastKill: null, deaths: 0, trips: 0, outings: 0, visits: 0, town: null, open: false, near: false, trip: null, lastDeath: -Infinity, out_ms: 0, maps: {}, at: null, start: null });
@@ -1871,7 +1871,7 @@ class Live {
 		const coarse = this.coarse,
 			gr = this.grid;
 		const out = {
-			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 7,
+			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 8,
 			precision: { dmg_done: "net", dmg_taken: "net", heal: "net", overkill: "exact", overheal: "exact", items: "exact", gold: "exact", gold_other: "exact", mana_by_skill: "exact",
 				sample_ms: coarse ? null : SAMPLE_MS, modes: coarse ? "coarse" : "exact", grid: coarse ? null : "exact", attrib: coarse ? null : "exact" },
 			history_cols: HISTORY_COLS, roster,

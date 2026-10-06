@@ -177,13 +177,30 @@ From another machine: `ssh -N -L 8089:localhost:8089 <user>@<this machine>`, the
 ## chronal install
 
 ```
-chronal install [--update]
+chronal install [--update | --latest | --check]
 ```
 
-Clones the game's three repos (`adventureland_mongodb`, `common_engine`, `adventureland_secretsandconfig`) into config
-`upstream` when missing (`--update`: `git pull --ff-only` them first), copies the game into `runtime/app` (the repos
-stay untouched: the game rewrites files as it runs), runs `npm install` there when its `package.json` changed, and
-writes its settings (`runtime/secretsandconfig`: a local server, this install's own keys). Run it again after an update.
+Installs the game the sim runs, at the commits this chronal is tested with (`upstream.json`):
+- clones the game's three repos (`adventureland_mongodb`, `common_engine`, `adventureland_secretsandconfig`) into config
+  `upstream` when missing, and checks each out (detached) at its pinned commit, fetching it when the clone doesn't
+  have it yet;
+- copies the game into `runtime/app` (the repos stay untouched: the game rewrites files as it runs), runs
+  `npm install` there when its `package.json` changed, and writes its settings (`runtime/secretsandconfig`: a local
+  server, this install's own keys);
+- records what it installed in `runtime/installed.json`. `chronal run` and the dashboard warn when that isn't the
+  pin (after updating chronal to a release that moves the pin, or after `--latest`): run `chronal install` again.
+
+Options:
+- `--update`: fetch the repos first.
+- `--latest`: upstream's newest commits instead of the pins, for trying a newer game. Untested with this chronal:
+  runs may fail or differ.
+- `--check`: installs nothing. Per repo the pinned, installed and upstream's newest commits, and how many commits
+  upstream is ahead of the pin (it fetches the repos).
+
+A chronal release moves the pin: its changelog says so, and runs on the new game don't group with earlier ones
+(snapshots record the game's commit, `versions.game`, and it is part of the setup key). A weekly check (the repo's
+GitHub Actions, `.github/workflows/upstream.yml`) runs the tests on upstream's newest game and opens an issue when they
+fail.
 
 ## chronal pull
 

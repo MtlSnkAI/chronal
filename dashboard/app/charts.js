@@ -440,7 +440,8 @@ function cmpTimeline(ss, W, bands, hov, d, head) {
 	const G = box(T, W, W - GW.g - GW.r, at, 1e9, null, hov);
 	const series = ss.map((s, si) => {
 		const rs = per[si].filter((r) => r.D && r.v).map((r) => resample(r.D.t, unit ? rateAt(r.D.t, r.v, win, unit) : r.v, at));
-		const lh = s.lh ? [ss.length > 1 && !si ? html`<b class="bln">Baseline</b>` : null, s.lh] : null;
+		// (a legend names a series short: the chips of what it changes are in Compare's header, here on hover)
+		const lh = s.lh ? [ss.length > 1 && !si ? html`<b class="bln">Baseline</b>` : null, s.sh != null ? html`<span class="lb nn" data-tip=${s.label}><span class="lc">${s.sh}</span></span>` : s.lh] : null;
 		if (!rs.length) return { id: s.id, label: s.label, lh, css: "--c:" + s.color, di: si, vals: null, zero: true };
 		const m = at.map((_, i) => { const xs = rs.map((r) => r[i]).filter((v) => v != null); return xs.length ? agg(xs) : null; });
 		const sd = (i) => (m[i] && m[i].sd != null ? m[i].sd : null);

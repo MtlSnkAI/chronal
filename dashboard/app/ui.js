@@ -85,8 +85,11 @@ export const Swatch = ({ id, tip }) => html`<i class="sw" style=${"--sc:" + scol
 // "+N" chip (their chips again in its tooltip), again once its width changes. two: when they don't all fit beside the
 // name, they go on a line of their own under it. Nothing is ever cut off: a name too long for even "+N" beside it is
 // shortened further (ellipsis); a label with no name (a series' changes) keeps its first chip, shortened if need be.
-export function Label({ name, chips, two }) {
-	const ref = useRef(null), [fit, setFit] = useState({ n: 0, sq: null, two: false }), width = useWidth(ref, true), sig = (name ?? "") + "|" + chips.map((c) => c.key + c.tip).join("|");
+// max: at most that many chips shown, the rest in the "+N" chip however wide the box; chips with a grp (a heading)
+// listed under their headings in its tooltip.
+export function Label({ name, chips, two, max }) {
+	const ref = useRef(null), [fit, setFit] = useState({ n: 0, sq: null, two: false }), width = useWidth(ref, true), sig = (name ?? "") + "|" + max + "|" + chips.map((c) => c.key + c.tip).join("|");
+	const lim = max != null ? Math.max(0, Math.min(max, chips.length)) : chips.length;
 	useLayoutEffect(() => {
 		const lb = ref.current, box = lb && lb.parentElement, bw = box && box.clientWidth;
 		if (!bw) return;
@@ -95,16 +98,17 @@ export function Label({ name, chips, two }) {
 		const cs = [...lb.children].filter((e) => (e.classList.contains("lc") && !e.classList.contains("more")) || e.classList.contains("gn")), more = lb.querySelector(".lc.more"), nm = lb.querySelector(".lbn");
 		const was = cs.map((c) => c.hidden), txt = more.firstChild, mw = [more.hidden, txt.data, lb.classList.contains("two")], ns = nm && nm.style.minWidth;
 		if (nm) nm.style.minWidth = "";
-		for (const c of cs) c.hidden = false;
-		more.hidden = true;
+		cs.forEach((c, i) => (c.hidden = i >= lim));
+		let k = cs.length - lim, sq = null, on2 = false;
+		more.hidden = !k;
+		txt.data = "+" + k;
 		lb.classList.remove("two");
 		// too much: past the box's width; on two lines: a chip on a third
 		const over = () => box.scrollWidth > bw || (lb.classList.contains("two") && lb.scrollHeight > nm.offsetHeight + 26);
-		let k = 0, sq = null, on2 = false;
 		if (over() && two && nm && cs.length) (on2 = true), lb.classList.add("two");
 		if (over()) {
 			more.hidden = false;
-			for (let i = cs.length - 1, keep = name != null ? 0 : 1; i >= keep && over(); i--) (cs[i].hidden = true), k++, (txt.data = "+" + k);
+			for (let i = lim - 1, keep = name != null ? 0 : 1; i >= keep && over(); i--) (cs[i].hidden = true), k++, (txt.data = "+" + k);
 			if (nm && box.scrollWidth > bw) sq = Math.max(16, nm.offsetWidth - (box.scrollWidth - bw));
 		}
 		cs.forEach((c, i) => (c.hidden = was[i]));
@@ -113,8 +117,9 @@ export function Label({ name, chips, two }) {
 		if (nm) nm.style.minWidth = ns;
 		if (k !== fit.n || sq !== fit.sq || on2 !== fit.two) setFit({ n: k, sq, two: on2 });
 	}, [sig, width]);
-	const cut = chips.length - fit.n, gone = chips.slice(cut);
-	const tip = () => html`<div class="tch">${gone.map((c) => [c.gn ? html`<span></span>` : c.el(false), html`<span>${c.tip}</span>`])}</div>`;
+	const cut = chips.length - fit.n, gone = chips.slice(cut), grps = [...new Set(gone.map((c) => c.grp).filter(Boolean))];
+	const row = (c) => [c.gn ? html`<span></span>` : c.el(false), html`<span>${c.tip}</span>`];
+	const tip = () => html`<div class="tch">${grps.length ? grps.map((g) => [html`<b class="tgh">${g}</b>`, gone.filter((c) => c.grp === g).map(row)]).concat(gone.filter((c) => !c.grp).map(row)) : gone.map(row)}</div>`;
 	return html`<span class=${"lb" + (name == null ? " nn" : "") + (fit.two ? " two" : "")} ref=${ref}>${name != null ? html`<span class="lbn" style=${fit.sq != null ? "min-width:" + fit.sq + "px" : null}>${name}</span>` : null}${chips.map((c, i) => c.el(i >= cut))}<span class="lc more" hidden=${!fit.n} data-tip=${gone.map((c) => c.tip).join("\n") || null} ref=${rich(tip)}>${"+" + fit.n}</span></span>`;
 }
 // a chip of a label
@@ -136,7 +141,7 @@ export function runChips(w) {
 	for (const v of L.vs) c.push(v.set ? chip("set|" + v.set, "CODE set " + v.set + (code ? ", hash " + code : ""), [CODEI(), v.set], "cd") : lcItem(w, v.who, v.slot, itemSpec(v.spec)));
 	for (const g of L.gear) c.push(...gearChips(w, g));
 	if (L.code && code) c.push(chip("code", "CODE hash " + code + (cur ? " (" + cur + ": the CODE's source when it was rerun)" : "") + ": most runs of this name ran another", [CODEI(), L.sets.get(code) || html`<span class="hx">${code}</span>`], "cd"));
-	if (L.sim) { const v = w.versions.sim; c.push(chip("sim", "the version of the sim " + v + " (the last git commit of what changes a run; +: uncommitted changes" + (w.versions.chronal ? "; chronal " + w.versions.chronal : "") + "); most runs of this name ran " + L.sim, [FF(), html`<span class="hx">${w.versions.chronal ? w.versions.chronal.replace(/\.(\w{3})\w*$/, ".$1") : v.replace(/\+(\w{3})\w*$/, "+$1")}</span>`])); }
+	if (L.sim) { const v = w.versions.sim; c.push(chip("sim", "the version of the sim " + v + " (the last git commit of what changes a run; +: uncommitted changes" + (w.versions.chronal ? "; chronal " + w.versions.chronal : "") + (w.versions.game ? "; game " + w.versions.game : "") + "); most runs of this name ran " + L.sim, [FF(), html`<span class="hx">${w.versions.chronal ? w.versions.chronal.replace(/\.(\w{3})\w*$/, ".$1") : v.replace(/\+(\w{3})\w*$/, "+$1")}</span>`])); }
 	if (L.warm) c.push(chip("warm", "game time with the characters online before measuring", "warm-up " + fmtSpan((w.run && w.run.warmup_ms) || 0)));
 	if (L.wage) c.push(chip("wage", "game time the world ran with no characters before they logged in", "world age " + fmtSpan(wageOf(w))));
 	// not as on live: always said (a forced event, a season on, a custom world)

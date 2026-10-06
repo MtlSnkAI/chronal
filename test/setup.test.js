@@ -677,3 +677,10 @@ test("chronalVersion: package.json's version; +<commit> off its release tag (v<v
 		fs.rmSync(d, { recursive: true, force: true });
 	}
 });
+
+test("setupKey: the game's commit is part of it when a run records one; without, the key is as before", () => {
+	const r = { name: "x", run: { seed: 1 }, world: {}, characters: [{ name: "A", note: "n" }], accounts: {} };
+	const k0 = S.setupKey(r, "abc1234"), k1 = S.setupKey(r, "abc1234", "90052162"), k2 = S.setupKey(r, "abc1234", "98783128");
+	assert.equal(S.setupKey(r, "abc1234", null), k0);
+	assert.ok(k0 !== k1 && k1 !== k2);
+});

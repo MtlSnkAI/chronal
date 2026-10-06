@@ -11,8 +11,8 @@ import htm from "./vendor/htm.js";
 import { fmtN, fmtG, pct, pctU, num, clamp01, mean, agg, cvar, tot, seedOf, catOf, startedText, CATDOT, stateText } from "./lib.js";
 import { nav, runHash, cmpHash } from "./store.js";
 import { icon, iconFit, weaponOf, mon, Cond, condName, condIcon, kindOf, CODEI } from "./art.js";
-import { Fold, Select, Swatch, Label, RunLabel, chip, Kt, Ktv, Delta, MetricsButton } from "./ui.js";
-import { statsOf, monstersOf, activeOf, mval, fmtM, fmtMS, cunit, aggOf, kpiMs, heroM, REG, MET, dataM, drillEntries, entryIcon, sweepOf, settingsOf, setsOf, changes, chgTxt, keyName, valTxt, codeTxt, nameOf, typeOf, cmpRuns } from "./metrics.js";
+import { Fold, Select, Swatch, Label, RunLabel, runChips, chip, Kt, Ktv, Delta, MetricsButton } from "./ui.js";
+import { statsOf, monstersOf, activeOf, mval, fmtM, fmtMS, cunit, aggOf, kpiMs, heroM, REG, MET, dataM, drillEntries, entryIcon, sweepOf, settingsOf, setsOf, changes, chgTxt, chgGroup, chgLow, CHG_GROUPS, keyName, valTxt, codeTxt, nameOf, typeOf, cmpRuns } from "./metrics.js";
 import { CmpTimeline, DotPlot, SweepChart } from "./charts.js";
 import { V, setV } from "./view.js";
 import { ItemsSeg, useDrillFocus } from "./panel.js";
@@ -25,8 +25,13 @@ const runOf = (w) => (seedOf(w) != null ? "seed " + seedOf(w) : "started " + sta
 
 // ---- the series named: the baseline (the first) by its short label, every other one by what it changes from it, as
 // chips (s.lh), as text (s.label: the charts' readouts, tooltips); its own name first when it isn't the baseline's; no
-// setting changed: its seed (a group: the same setup)
+// setting changed: its seed (a group: the same setup). At most MAXC changes shown, the ones that change results first;
+// the others (and the versions, CODE names, start date, account ages, never shown) in its "+N" chip, by group. A series
+// that shares less than half of its characters with the baseline is another setup: its own label, and its changes
+// counted in one chip. s.sh: its short name, for the charts' legends (its name; the same name as the baseline's: its
+// first change)
 const ARW = () => html`<i class="arw" aria-hidden="true">→</i>`;
+const MAXC = 3;
 const itemRest = (it) => ["+" + it.level, it.stat ? html`<small>${it.stat}</small>` : null, it.p ? html`<small>${it.p}</small>` : null];
 const itemMini = (it) => (it ? [iconFit(it.name, 18) || it.name, it.level ? "+" + it.level : "", it.stat ? html`<small>${it.stat}</small>` : null, it.p ? html`<small>${it.p}</small>` : null] : "none");
 const cut16 = (v) => (v.length > 16 ? v.slice(0, 16) + "..." : v);
@@ -43,18 +48,35 @@ function chgChip(c, wa, wb) {
 export function nameSeries(ss) {
 	const b = ss[0], wb = b && (b.runs[0] || b.all[0]);
 	if (!wb) return ss;
-	const nb = nameOf(wb).name, sb = ss.length > 1 ? setsOf(b) : null;
+	const nb = nameOf(wb).name, sets = ss.length > 1 ? ss.map(setsOf) : null, sb = sets && sets[0];
 	// several series: the changes the fewest of them make first (what sets one apart)
-	const chs = ss.slice(1).map((s) => changes(sb, setsOf(s))), all = chs.map((cs) => new Set((cs || []).map(chgTxt)));
+	const chs = ss.slice(1).map((s, j) => changes(sb, sets[j + 1])), all = chs.map((cs) => new Set((cs || []).map(chgTxt)));
 	const ord = (cs) => cs && cs.map((c, i) => ({ c, i, n: all.filter((x) => x.has(chgTxt(c))).length })).sort((x, y) => x.n - y.n || x.i - y.i).map((x) => x.c);
-	b.lh = html`<${RunLabel} w=${wb} />`; b.label = nb; b.chg = [];
+	const whoOf = (x) => new Set(Object.keys(x || {}).map((k) => /^characters\[([^\]]+)\]\.name$/.exec(k)).filter(Boolean).map((m) => m[1]));
+	const grouped = (cs) => CHG_GROUPS.map((g) => [g, cs.filter((c) => chgGroup(c) === g)]).filter(([, x]) => x.length);
+	b.lh = html`<${RunLabel} w=${wb} />`; b.label = nb; b.sh = nb; b.chg = [];
 	ss.slice(1).forEach((s, j) => {
 		const w = s.runs[0] || s.all[0], nm = nameOf(w).name, cs = (s.chg = all.length > 1 ? ord(chs[j]) : chs[j]), c = [], t = [];
+		const own = whoOf(sets[j + 1]), base = whoOf(sb), shared = [...own].filter((n) => base.has(n)).length, union = new Set([...own, ...base]).size;
+		if (cs && cs.length && union && shared / union < 0.5) {
+			// another setup: what it is, and how much differs (the list in its chip's tooltip)
+			const tip = "another setup than the baseline's (" + shared + " of " + union + " characters in both); what differs:\n" + grouped(cs).map(([g, x]) => g + ": " + x.map(chgTxt).join("; ")).join("\n");
+			const n = cs.length + " difference" + (cs.length === 1 ? "" : "s");
+			s.lh = html`<${Label} name=${nm} chips=${[...runChips(w), chip("other", tip, "other setup: " + n, "chg")]} />`;
+			s.label = nm + " (other setup: " + n + ")";
+			s.sh = nm;
+			return;
+		}
 		if (nm !== nb) c.push(chip("nm", "its name: " + nm, nm)), t.push(nm);
+		let max;
 		if (!cs) c.push(chip("ld", "loading...", "loading...")), t.push("loading...");
-		else if (cs.length) for (const x of cs) c.push(chgChip(x, wb, w)), t.push(chgTxt(x));
-		else { const x = s.group ? "same setup" : "seed " + seedOf(w); c.push(chip("same", "no setting differs from the baseline", x)), t.push(x); }
-		s.lh = html`<${Label} chips=${c} />`; s.label = t.join("; ");
+		else if (cs.length) {
+			const hi = cs.filter((x) => !chgLow(x)), lo = cs.filter(chgLow);
+			for (const x of [...hi, ...lo]) c.push({ ...chgChip(x, wb, w), grp: chgGroup(x) }), t.push(chgTxt(x));
+			max = c.length - cs.length + Math.min(MAXC, hi.length) || 1;
+		} else { const x = s.group ? "same setup" : "seed " + seedOf(w); c.push(chip("same", "no setting differs from the baseline", x)), t.push(x); }
+		s.lh = html`<${Label} chips=${c} max=${max} />`; s.label = t.join("; ");
+		s.sh = nm !== nb ? nm : cs && cs.length ? chgTxt(cs.find((x) => !chgLow(x)) || cs[0]) : t[0];
 	});
 	return ss;
 }

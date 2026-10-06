@@ -398,4 +398,5 @@ function putStorage(st, entries) {
 	return st;
 }
 
-module.exports = { startClient, clientInfo, makeStorage, putStorage };
+// (makeWindow, run, exec, RUNNER_FILES: for a host's own client thread script that builds its CODE runner itself)
+module.exports = { startClient, clientInfo, makeStorage, putStorage, makeWindow, run, exec, RUNNER_FILES };

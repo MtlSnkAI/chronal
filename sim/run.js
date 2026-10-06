@@ -217,6 +217,9 @@ const main = (argv) => (async () => {
 	}
 	if (!liveDir && (run.until != null || (resolved.steer || []).some((e) => e.when != null))) usage("run.until and steering conditions read the run's snapshot: they need live snapshots (not --no-live)");
 	for (const w of warnings) console.error("warning: " + w);
+	// the game installed: the one this chronal is tested with (lib/install.js)
+	const game = require("../lib/install").gameCheck();
+	if (game.text) console.error("warning: " + game.text);
 	const warm = parseDuration(run.warmup),
 		duration = parseDuration(run.duration),
 		t0 = performance.now();

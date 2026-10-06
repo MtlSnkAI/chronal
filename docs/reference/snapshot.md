@@ -1,10 +1,10 @@
-# Live snapshot schema v2.7
+# Live snapshot schema v2.8
 
 What a run writes into a live dir while it runs, and what the dashboard (`dashboard/server.js`) and
 `tools/live_check.js` read. `sim/live.js` writes it for every `chronal run` run (the live dir: `--live DIR`, else
 config `live_dir`; `--no-live`: none).
 
-A snapshot says `schema: 2, schema_minor: 7`. The input of a run, the run setup (`chronal-setup/1`), is described in
+A snapshot says `schema: 2, schema_minor: 8`. The input of a run, the run setup (`chronal-setup/1`), is described in
 docs/reference/setup.md; `chronal example` prints an annotated one.
 
 ## 1. Files in a live dir
@@ -59,10 +59,10 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `id`, `tag` | the file id; the card title (`--tag`, else the setup's name, else `<script> s<seed>`) |
 | `strategy` | readable text of the run: the setup's `strategy`, else made from its roster, farms, notes and extras (" (no party)" once measured: the fighters were never all in one party) |
 | `script` | `"chronal run"` |
-| `versions` | `{ chronal, sim, code, code_hash }`: chronal's version (as `chronal --version` prints it; since 2.7), git version of the simulator (`<commit>[+<diff hash>]`: the last commit of the files that change what a run does, and a hash of their uncommitted diff; `sim/`, `lib/` and `codes/` but `sim/g_data.js`, `lib/compose.js`, `lib/pull.js`, `lib/example.js` and `lib/install.js`), git version of the first character's CODE directory ("?" outside a repo; a run without a setup: null), hash over every character's CODE (section 9) |
+| `versions` | `{ chronal, game, sim, code, code_hash }`: chronal's version (as `chronal --version` prints it; since 2.7), the game's commit (8 characters; `runtime/installed.json`, `chronal install`; null for a game elsewhere or an install from before chronal 0.8.0; since 2.8), git version of the simulator (`<commit>[+<diff hash>]`: the last commit of the files that change what a run does, and a hash of their uncommitted diff; `sim/`, `lib/` and `codes/` but `sim/g_data.js`, `lib/compose.js`, `lib/pull.js`, `lib/example.js` and `lib/install.js`), git version of the first character's CODE directory ("?" outside a repo; a run without a setup: null), hash over every character's CODE (section 9) |
 | `setup` | `{ format, file, name, from, hash }` (section 9); absent for runs without a setup |
-| `setup_key` | hash of what defines the run (section 9: the setup without its run knobs, name, strategy and notes, plus the simulator version; a run without a setup: null): runs of one setup with other seeds or durations share it |
-| `schema`, `schema_minor` | `2`, `7` |
+| `setup_key` | hash of what defines the run (section 9: the setup without its run knobs, name, strategy and notes, plus the simulator version and the game's commit when recorded; a run without a setup: null): runs of one setup with other seeds or durations share it |
+| `schema`, `schema_minor` | `2`, `8` |
 | `precision` | how each family was measured (below) |
 | `history_cols` | column names of the history rows (section 7) |
 | `roster` | the run's characters in run order (section 5) |
