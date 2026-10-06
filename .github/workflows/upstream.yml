@@ -1,6 +1,7 @@
-# Weekly: chronal's tests (develop) on the game's newest commits (chronal install --latest). When they fail, an issue
-# labelled "upstream" says which upstream commit broke what (an open one gets a comment instead); when they pass again,
-# the open issue says so. The pin (upstream.json) moves in a chronal release once they pass (docs/reference/cli.md).
+# Weekly: chronal's tests (develop) on the game's newest commits (chronal install --latest). When they fail, a new issue
+# labelled "upstream" (one per week: a reported issue's author isn't notified week after week) says which upstream
+# commit broke what, and the week before's open one is closed as superseded; when they pass again, the open one is
+# closed. The pin (upstream.json) moves in a chronal release once they pass (docs/reference/cli.md).
 name: Upstream game
 on:
   schedule:
@@ -57,10 +58,10 @@ jobs:
             grep -m1 -A6 -E 'Error|FAILED' test.log 2>/dev/null
             echo '```'
           } > body.md
-          gh label create upstream --description "the game's newest commits against chronal" --color FBCA04 2>/dev/null || true
-          n=$(gh issue list --label upstream --state open --json number --jq '.[0].number // empty')
-          if [ -n "$n" ]; then gh issue comment "$n" --body-file body.md
-          else gh issue create --title "The game's newest commit ($game) fails chronal's tests" --label upstream --body-file body.md; fi
+          gh label create upstream --description "the weekly check: the game's newest commits against chronal" --color FBCA04 2>/dev/null || true
+          before=$(gh issue list --label upstream --state open --json number --jq '.[].number')
+          url=$(gh issue create --title "Upstream check $(date -u +%F): the game's newest commit ($game) fails chronal's tests" --label upstream --body-file body.md)
+          for n in $before; do gh issue close "$n" --comment "Superseded by this week's check: $url"; done
       - name: Report a pass
         if: success()
         env:
@@ -69,5 +70,5 @@ jobs:
         run: |
           game=$(node -p 'require("./runtime/installed.json").game.slice(0, 8)')
           for n in $(gh issue list --label upstream --state open --json number --jq '.[].number'); do
-            gh issue comment "$n" --body "chronal's tests (\`develop\`) pass on the game's newest commit, \`adventureland_mongodb\` $game: the pin can move to it in a release."
+            gh issue close "$n" --comment "chronal's tests (\`develop\`) pass on the game's newest commit, \`adventureland_mongodb\` $game: the pin can move to it in a release."
           done

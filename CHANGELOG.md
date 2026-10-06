@@ -16,6 +16,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   each other warning by its first words, the whole text on hover. A whole sentence per chip filled several lines.
 - The weekly upstream check uses actions/checkout and actions/setup-node v7 (Node 24): v4 ran on Node 20, which GitHub
   deprecates.
+- The weekly upstream check opens a new issue each week its tests fail and closes the week before's (it commented on
+  one open issue, which could be a user's report).
 
 ## [0.8.0] - 2026-10-06
 
