@@ -38,6 +38,16 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   recorded: a `trade` event with `via: "swap"` and what was paid (`for`), both sides' ledgers (`stand_swapped_out`,
   `stand_swapped_in`), `live_check`'s item check; the dashboard's Items "Traded" tab shows them as "trade offer".
 
+### Changed
+
+- The game moves to 98783128 (`upstream.json`), the version live runs: of the 41 differences a pull found between
+  live's game data and 90052162, 38 are gone (3 cave entries are newer than the published game). Gameplay that changes
+  with it: rare accessory drops and rare variants, Cliff Kobolds (renamed Kobolds, faster), merchant stand trade
+  offers, monster combat ranges, the Gnomish Capacitor's mana restore chance capped at 20%, petrify (Stonegaze Ring),
+  the Deepvein Axe's crafting cost, encouragement rewards in loot events. Its game server is faster: a run the server
+  limits runs faster (the example: 77x -> 124x), one its characters' CODE limits as before (a rogue, a merchant and a
+  market account: 108x -> 107x).
+
 ## [0.8.0] - 2026-10-06
 
 ### Upgrading
