@@ -541,7 +541,7 @@ export function sweepOf(ss) {
 const CHG_SKIP = /^(run\.seed$|name$|strategy$|notes|characters\[[^\]]+\]\.note$)/;
 export function setsOf(s) {
 	const w = s.runs[0] || s.all[0], x = w && settingsOf(w);
-	return x && { ...Object.fromEntries(Object.entries(x).filter(([k]) => !CHG_SKIP.test(k))), sim: JSON.stringify((w.versions && w.versions.sim) || null) };
+	return x && { ...Object.fromEntries(Object.entries(x).filter(([k]) => !CHG_SKIP.test(k))), sim: JSON.stringify((w.versions && w.versions.sim) || null), chronal: JSON.stringify((w.versions && w.versions.chronal) || null) };
 }
 const slotAt = (x, who, sl) => { const b = "characters[" + who + "].state.slots." + sl + ".", n = jp(x[b + "name"]); return n ? { name: n, level: +jp(x[b + "level"]) || 0, stat: jp(x[b + "stat_type"]) || "", p: jp(x[b + "p"]) || "" } : null; };
 const atOf = (x, who) => { const b = "characters[" + who + "].at."; return [jp(x[b + "map"]), jp(x[b + "x"]), jp(x[b + "y"])].filter((v) => v != null).join(" "); };
@@ -565,9 +565,9 @@ export function changes(a, b) {
 	return [...out.values()].sort((x, y) => rank[x.kind] - rank[y.kind]);
 }
 // a setting's name and value as they read (the setup's keys; the snapshot's when a run has no setup file)
-const KEYN = { "run.duration": "duration", "run.duration_ms": "duration", "run.warmup": "warm-up", "run.warmup_ms": "warm-up", "run.until": "until", "run.grid_ms": "grid", "world.age": "world age", "world.age_ms": "world age", "world.ping": "ping", "world.threads": "threads", "party.members": "party", "party.leader": "leader", "party.form": "party form", sim: "sim" };
+const KEYN = { "run.duration": "duration", "run.duration_ms": "duration", "run.warmup": "warm-up", "run.warmup_ms": "warm-up", "run.until": "until", "run.grid_ms": "grid", "world.age": "world age", "world.age_ms": "world age", "world.ping": "ping", "world.threads": "threads", "party.members": "party", "party.leader": "leader", "party.form": "party form", sim: "sim", chronal: "chronal" };
 export const keyName = (k) => KEYN[k] || k.replace(/^characters\[([^\]]+)\]\.state\.slots\.(\w+)\.(\w+)$/, (x, n, sl, f) => n + "'s " + sl + ({ name: "", level: " level", stat_type: " stat", p: " title" }[f] ?? " " + f)).replace(/^accounts\.([^.]+)\.age_days$/, "$1's account age").replace(/^characters\[([^\]]+)\]\.(state\.)?/, "$1 ").replace(/^roster\[([^\]]+)\]\./, "$1 ").replace(/_ms$/, "");
-export const valTxt = (k, v) => (v == null ? "none" : /_ms$/.test(k) && typeof v === "number" ? fmtSpan(v) : /age_days$/.test(k) ? +(+v).toFixed(1) + " days" : k === "sim" ? String(v).replace(/\+(\w{3})\w*$/, "+$1") : Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : String(v));
+export const valTxt = (k, v) => (v == null ? "none" : /_ms$/.test(k) && typeof v === "number" ? fmtSpan(v) : /age_days$/.test(k) ? +(+v).toFixed(1) + " days" : k === "sim" ? String(v).replace(/\+(\w{3})\w*$/, "+$1") : k === "chronal" ? String(v).replace(/\.(\w{3})\w*$/, ".$1") : Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : String(v));
 const itemTxt = (it) => (it ? it.name + (it.level ? " +" + it.level : "") + (it.stat ? " " + it.stat : "") + (it.p ? " " + it.p : "") : "none");
 export const codeTxt = (x) => (x ? CODESETS.get(x) || x : "none");
 export function chgTxt(c) {

@@ -10,6 +10,16 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-06
+
+### Added
+
+- `chronal --version` prints chronal's version, and snapshots record it as `versions.chronal` (schema 2.7): a
+  release's `0.6.1`, or `0.6.1+<commit>` from a checkout off a release tag (`.<hash>` with uncommitted changes). The
+  dashboard shows it in a run's Versions (its Run tab), in Compare's list of what changed between runs (chronal none
+  -> 0.7.0, against a run from before), and on the sim chip of a run whose sim differs from its name's other runs.
+  ([cli](docs/reference/cli.md))
+
 ## [0.6.1] - 2026-10-06
 
 ### Fixed
@@ -143,7 +153,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 The first release: Adventure Land's real game server and clients on a virtual clock, running your CODE unmodified and
 headless at 100x and more, with a dashboard, replays, and fidelity checks against live.
 
-[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.6.1...develop
+[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.7.0...develop
+[0.7.0]: https://github.com/MtlSnkAI/chronal/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/MtlSnkAI/chronal/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/MtlSnkAI/chronal/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/MtlSnkAI/chronal/compare/v0.4.0...v0.5.0

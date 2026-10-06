@@ -50,7 +50,7 @@ const fs = require("node:fs"),
 	{ readMode, readStatus, readRole, guarded, logTap, LOG_KEEP, STATUS_MS, WHY } = require("./report"),
 	SETUP = require("../lib/setup"),
 	SCH = require("../lib/schedule"),
-	{ gitVersion, simVersion } = SETUP;
+	{ gitVersion, simVersion, chronalVersion } = SETUP;
 
 const GEAR = ["mainhand", "offhand", "helmet", "chest", "pants", "shoes", "gloves", "ring1", "ring2", "earring1", "earring2", "amulet", "belt", "orb", "cape", "elixir"];
 const HISTORY = 300; // points per character, spread evenly over the run (histPush)
@@ -401,7 +401,7 @@ class Live {
 				members = new Set((rs.party && rs.party.members) || []);
 			this.meta = {
 				strategy: SETUP.strategyText(rs), script,
-				versions: { sim: simVersion(), code: first.git ? first.git.commit.slice(0, 7) : first.code_dir || first.file ? gitVersion(first.code_dir || path.dirname(first.file)) : "?", code_hash: SETUP.codeHash(rs) },
+				versions: { chronal: chronalVersion(), sim: simVersion(), code: first.git ? first.git.commit.slice(0, 7) : first.code_dir || first.file ? gitVersion(first.code_dir || path.dirname(first.file)) : "?", code_hash: SETUP.codeHash(rs) },
 				setup: { format: rs.format, file: this.id + ".setup.json", name: rs.name, from: (rs.resolved && rs.resolved.from) || null, hash: SETUP.sideHash(rs) },
 			};
 			// accounts.<k>.totals false (a market account): its characters' and bank's gold out of the run's gold totals
@@ -413,7 +413,7 @@ class Live {
 		} else {
 			this.meta = {
 				strategy: "default", script,
-				versions: { sim: simVersion(), code: null, code_hash: null },
+				versions: { chronal: chronalVersion(), sim: simVersion(), code: null, code_hash: null },
 			};
 		}
 		this.setupKey();
@@ -1871,7 +1871,7 @@ class Live {
 		const coarse = this.coarse,
 			gr = this.grid;
 		const out = {
-			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 6,
+			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 7,
 			precision: { dmg_done: "net", dmg_taken: "net", heal: "net", overkill: "exact", overheal: "exact", items: "exact", gold: "exact", gold_other: "exact", mana_by_skill: "exact",
 				sample_ms: coarse ? null : SAMPLE_MS, modes: coarse ? "coarse" : "exact", grid: coarse ? null : "exact", attrib: coarse ? null : "exact" },
 			history_cols: HISTORY_COLS, roster,

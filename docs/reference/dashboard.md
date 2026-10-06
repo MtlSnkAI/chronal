@@ -27,7 +27,8 @@ Accounts, Settings), then the runs list:
 - a row per run, running and finished together: its state as a colour (running green, stalled: alive, no update for
   15 s; done grey, stopped amber: killed or stopped early; failed red), its party (a bar per character in its class
   colour; hover: class, name, level), its short label (the setup's name, then chips for what sets it apart from the
-  other runs of that name: items, CODE, the sim's version, warm-up, world age, ping, account age) and its game time;
+  other runs of that name: items, CODE, the sim's version (labelled with chronal's version when the run has one),
+  warm-up, world age, ping, account age) and its game time;
 - filters by state, folder (when the live folder has runs in folders) and name; sorting by any column;
 - **Groups:** runs of one setup (`setup_key`), duration, warm-up and Until fold under a group row; their numbers come
   from the runs that didn't fail, each seed once (a run is deterministic per seed and CODE);
@@ -69,7 +70,8 @@ start. **Remove finished** moves every finished and stopped run to `removed/` be
 - **Monsters**: a row per monster type, the hunted ones first: the run's kills and kills per game hour, the server's
   other kills, how many there were and their levels at the base and at the end, the deaths each caused; then the
   deaths (where, by what, when).
-- **Run**: the run's facts (its start time, seasons, the events it saw and forced, ...), its setup (per character: start state, CODE, params, extras; accounts, party, steering;
+- **Run**: the run's facts (its start time, seasons, the events it saw and forced, its versions: chronal's as
+  `chronal --version` prints it, the CODE's and the sim's commits, ...), its setup (per character: start state, CODE, params, extras; accounts, party, steering;
   "Download setup.json"), its launch and log, the CODE's status tree.
 - **Replay** (a recorded run): the game's own page playing the run over the tabs, a button per character, a bar with
   the time, the speed, pause and a scrubber; Hide the game folds it to a bar. Clicking a graph or a buff lane seeks it.
@@ -79,7 +81,8 @@ start. **Remove finished** moves every finished and stopped run to `removed/` be
 
 **Compare:** the series in the URL (runs and groups). **Summary**: per headline metric each series' mean and its change
 from the baseline, coloured only when Welch's t-test gives p < 0.05; per character; the timeline (mean and sd band);
-every run as a dot; a sweep's metric against the swept setting. The other tabs: Detail's, per series. A click on a
+every run as a dot; a sweep's metric against the swept setting. What a series changes from the baseline lists the
+settings it differs in, the sim's commit and chronal's version included (`none` for a run from before 0.7.0). The other tabs: Detail's, per series. A click on a
 series makes it the baseline.
 
 **New sim** (the page): a setup composed as `chronal new` does, previewed on every change:

@@ -3,6 +3,7 @@
 "use strict";
 
 const HELP = `usage: chronal <command> [options]
+       chronal --version         its version
 
 Run
   run <setup.json | <id>.setup.json> [options]
@@ -41,6 +42,7 @@ const cmd = args.shift() || "help";
 
 const COMMANDS = {
 	help: () => console.log(HELP),
+	"--version": () => console.log("chronal " + require("./lib/setup").chronalVersion()),
 	run: () => require("./sim/run").main(args),
 	continue: () => require("./lib/continue").cli(args),
 	ps: () => require("./lib/runs").cli("ps", args),
