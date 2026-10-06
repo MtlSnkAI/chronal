@@ -18,6 +18,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 - A recording keeps every session of a character: when its page loaded again (its CODE's `disconnect()`, or the
   server's after a third death by burn in one session) or it was started again, the recording started over and only
   the last session could be replayed. A replay now plays through each reload.
+- A replay's console no longer fills with "Weird resolve_deferred issue" errors: the recorded server answers to the
+  recorded CODE's calls are quiet in the replay page.
 
 ## [0.6.0] - 2026-10-06
 

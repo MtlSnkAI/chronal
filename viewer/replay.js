@@ -287,7 +287,15 @@ function replay(o, fold) {
 				sp.real_alpha = Math.min(1, sp.real_alpha + 0.05 * (rate - 1));
 		};
 	};
-	const waitGame = () => (["position_map", "draw_timeouts_logic", "effects_logic"].every((f) => typeof w[f] === "function") ? (wrapCamera(), wrapTimeouts()) : tw.real.setTimeout(waitGame, 50));
+	// the answers to the recorded client's calls (its CODE's) find no promise in this page: quiet, not a console error
+	// each ("Weird resolve_deferred issue")
+	const quietDeferreds = () => {
+		for (const f of ["resolve_deferred", "reject_deferred"]) {
+			const orig = w[f];
+			w[f] = function (name) { return w.deferreds && w.deferreds[name] && w.deferreds[name].length ? orig.apply(this, arguments) : undefined; };
+		}
+	};
+	const waitGame = () => (["position_map", "draw_timeouts_logic", "effects_logic", "resolve_deferred", "reject_deferred"].every((f) => typeof w[f] === "function") ? (wrapCamera(), wrapTimeouts(), quietDeferreds()) : tw.real.setTimeout(waitGame, 50));
 	waitGame();
 
 	// the bar: the time (measured from the run's base when the page knows it, else from the recording's start), the
