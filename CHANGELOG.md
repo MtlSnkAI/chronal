@@ -10,6 +10,12 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+### Added
+
+- `chronal --version` prints chronal's version, and snapshots record it as `versions.chronal` (schema 2.7): a
+  release's `0.6.1`, or `0.6.1+<commit>` from a checkout off a release tag (`.<hash>` with uncommitted changes). The
+  dashboard's sim chip shows it. ([cli](docs/reference/cli.md))
+
 ## [0.6.1] - 2026-10-06
 
 ### Fixed

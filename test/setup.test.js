@@ -653,3 +653,27 @@ test("totals on a real run: an account with totals false is out of the snapshot'
 	assert.equal(snap.roster.find((p) => p.name === "Mkt").totals, false);
 	assert.equal(out.characters.Mkt.outside, true);
 });
+
+test("chronalVersion: package.json's version; +<commit> off its release tag (v<version>), .<hash> with uncommitted changes; the version alone outside git", () => {
+	const { execFileSync } = require("node:child_process");
+	const d = fs.mkdtempSync(path.join(os.tmpdir(), "chronal-version-")),
+		git = (...a) => execFileSync("git", ["-C", d, "-c", "user.name=t", "-c", "user.email=t@t", ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+	try {
+		fs.writeFileSync(path.join(d, "package.json"), JSON.stringify({ name: "chronal", version: "1.2.3" }));
+		assert.strictEqual(S.chronalVersion(d), "1.2.3"); // (not a repo)
+		git("init", "-q");
+		git("add", "package.json");
+		git("commit", "-qm", "a");
+		git("tag", "v1.2.3");
+		assert.strictEqual(S.chronalVersion(d), "1.2.3");
+		fs.writeFileSync(path.join(d, "x.js"), "1");
+		git("add", "x.js");
+		git("commit", "-qm", "b");
+		const head = git("rev-parse", "--short", "HEAD");
+		assert.strictEqual(S.chronalVersion(d), "1.2.3+" + head);
+		fs.writeFileSync(path.join(d, "x.js"), "2");
+		assert.match(S.chronalVersion(d), new RegExp("^1\\.2\\.3\\+" + head + "\\.[0-9a-f]{6}$"));
+	} finally {
+		fs.rmSync(d, { recursive: true, force: true });
+	}
+});

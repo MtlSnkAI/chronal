@@ -1,7 +1,9 @@
 # Commands
 
 `chronal <command> [options]`; `chronal help` lists them. Exit codes: 0 done, 1 failed, 2 usage or setup problems
-(every problem listed).
+(every problem listed). `chronal --version` prints its version: `package.json`'s (a release, its tag `vX.Y.Z`), with
+`+<commit>` in a checkout off that tag and `.<hash>` of uncommitted changes (e.g. `0.6.1+ccad481`), as snapshots record
+it (`versions.chronal`).
 
 | command | |
 |---|---|
