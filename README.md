@@ -47,6 +47,12 @@ npm link            # puts `chronal` on your PATH (or use: node chronal.js ...)
 chronal install     # downloads the game's code into upstream/ and prepares runtime/
 ```
 
+## Versions
+
+Releases are the tags `vX.Y.Z` on `main`. [CHANGELOG.md](CHANGELOG.md) says what each one changes, and its
+**Upgrading** sections what to change in a setup or a script when a release changes a format or an output. `develop`
+holds the work for the next release. To use a release: `git checkout vX.Y.Z`, then `npm install`.
+
 ## Try it
 
 ```sh
