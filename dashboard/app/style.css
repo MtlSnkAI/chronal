@@ -372,7 +372,7 @@ a.lnk { color:var(--line); text-decoration:none; } a.lnk:hover { text-decoration
 /* a warning or problem: a one-line chip, all of it on hover or focus; Advanced: folded to what differs from the defaults */
 .fw { display:flex; flex-wrap:wrap; gap:4px; min-width:0; } .fw:empty { display:none; }
 #nsim, .paf, .nsec, .nbar { grid-template-columns:minmax(0, 1fr); } /* (a long chip is cut, not the page widened) */
-button.kc { display:inline-block; max-width:100%; min-width:0; min-height:0; padding:2px 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; } .kc.warn { border-color:var(--warn); color:var(--warn-ink); } button.kc.sm { padding:0 6px; font-size:.82em; line-height:1.5; } .kc.bad { border-color:var(--bad); color:var(--bad); }
+button.kc { display:inline-block; max-width:100%; min-width:0; min-height:0; padding:2px 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; } .kc.warn { border-color:var(--warn); color:var(--warn-ink); } .kc.bad { border-color:var(--bad); color:var(--bad); }
 .paf .frow > .kadv { border:0; border-radius:0; padding:0; background:none; font-weight:var(--fw-b); gap:6px; cursor:pointer; } .kadv::after { content:""; border:5px solid transparent; border-right:0; border-left-color:currentColor; transition:transform .1s; } .kadv[aria-expanded="true"]::after { transform:rotate(90deg); }
 .seg.sm.kdur button { padding:2px 8px; } .kas { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
 .drh .ib.fhelp { align-self:center; font:var(--fw-b) 12px/1 var(--sans); color:var(--ink2); } .drh .ib.ibr { align-self:center; }
