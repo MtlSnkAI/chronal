@@ -10,6 +10,27 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-06
+
+### Upgrading
+
+- `chronal run --result` names its fields as the snapshot does: `xp` is now `xp_gained`, and `xp` and `max_xp` are the
+  xp within the level; `slots` is now `gear` and `gear_stat` (with the stat type). New: `mult_avg`, `outside`.
+- Snapshots (schema 2.6): a character's chest gold is split into `gold_flow.chest` (the chest's own gold), `egold`
+  (the monster's) and `enc` (encouragement receipts) instead of one `loot` flow; `income` sums the three.
+  ([snapshot](docs/reference/snapshot.md))
+
+### Added
+
+- Market trades are recorded: a stand's sale and a filled buy order are an items event each, in both sides' ledgers,
+  with their own gold flows (`stand`, `traded`). The dashboard's Items has a Traded tab. (schema 2.4)
+- The game log in the snapshot: each character's last 30 lines, and counts of CODE errors and console errors. The
+  dashboard's Game log fold fills, with an error mark and a CODE errors metric. (schema 2.5)
+- Each upgrade and compound try records its scroll, offering, the server's chance, the roll, and the grace before it;
+  the dashboard's Items shows them per try.
+- `accounts.<k>.totals: false` keeps an account (e.g. a market account) out of the run's gold totals; its characters
+  keep their own numbers. ([setup](docs/reference/setup.md#accounts))
+
 ## [0.2.0] - 2026-10-06
 
 ### Upgrading
@@ -59,7 +80,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 The first release: Adventure Land's real game server and clients on a virtual clock, running your CODE unmodified and
 headless at 100x and more, with a dashboard, replays, and fidelity checks against live.
 
-[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.2.0...develop
+[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.3.0...develop
+[0.3.0]: https://github.com/MtlSnkAI/chronal/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MtlSnkAI/chronal/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/MtlSnkAI/chronal/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/MtlSnkAI/chronal/releases/tag/v0.1.0
