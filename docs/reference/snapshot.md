@@ -1,10 +1,10 @@
-# Live snapshot schema v2.8
+# Live snapshot schema v2.9
 
 What a run writes into a live dir while it runs, and what the dashboard (`dashboard/server.js`) and
 `tools/live_check.js` read. `sim/live.js` writes it for every `chronal run` run (the live dir: `--live DIR`, else
 config `live_dir`; `--no-live`: none).
 
-A snapshot says `schema: 2, schema_minor: 8`. The input of a run, the run setup (`chronal-setup/1`), is described in
+A snapshot says `schema: 2, schema_minor: 9`. The input of a run, the run setup (`chronal-setup/1`), is described in
 docs/reference/setup.md; `chronal example` prints an annotated one.
 
 ## 1. Files in a live dir
@@ -62,7 +62,7 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `versions` | `{ chronal, game, sim, code, code_hash }`: chronal's version (as `chronal --version` prints it; since 2.7), the game's commit (8 characters; `runtime/installed.json`, `chronal install`; null for a game elsewhere or an install from before chronal 0.8.0; since 2.8), git version of the simulator (`<commit>[+<diff hash>]`: the last commit of the files that change what a run does, and a hash of their uncommitted diff; `sim/`, `lib/` and `codes/` but `sim/g_data.js`, `lib/compose.js`, `lib/pull.js`, `lib/example.js` and `lib/install.js`), git version of the first character's CODE directory ("?" outside a repo; a run without a setup: null), hash over every character's CODE (section 9) |
 | `setup` | `{ format, file, name, from, hash }` (section 9); absent for runs without a setup |
 | `setup_key` | hash of what defines the run (section 9: the setup without its run knobs, name, strategy and notes, plus the simulator version and the game's commit when recorded; a run without a setup: null): runs of one setup with other seeds or durations share it |
-| `schema`, `schema_minor` | `2`, `8` |
+| `schema`, `schema_minor` | `2`, `9` |
 | `precision` | how each family was measured (below) |
 | `history_cols` | column names of the history rows (section 7) |
 | `roster` | the run's characters in run order (section 5) |
@@ -81,7 +81,8 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `world` | `{ clock, globals, age_ms, mlevels }`: the virtual clock, the server's `{ goldm, luckm, xpm }` (below) |
 | `grid` | `{ step_ms, cols, file, lines, gen, tail }` (section 8); `null` when there is none (null in the single-thread Sim) |
 | `players` | one entry per character in game (section 6) (fighters by name, then the merchant) |
-| `notes` | runner notes: `chronal` (a CODE getter the sim stopped calling, below) |
+| `notes` | runner notes: `chronal` (a CODE getter the sim stopped calling, below; a hook that failed) |
+| `hook_errors` | `{ <hook>: { n, first } }`: chronal's measuring code that failed (a hook around a game function, a probe or a sample: the numbers it feeds are off; usually a game function that changed) or found the server's numbers not adding up (`encouragement_loot (Angel)`), how often, and the first error; empty when none (since 2.9). `CHRONAL_STRICT_HOOKS=1` (as `npm test` sets it) makes a process with one exit 1 |
 | `steer` | the setup's steering, each firing (docs/reference/setup.md): `[{ t, i, name?, why, at, character, what, note?, did, errors }]`; `t` game s since the base, `i` its step's index in the setup's `steer`, `why` what fired it (`"at 20m"`, `"when <condition>"`, `"30s after boss"`), `at` the setup's, `character` null for every one, `what` its keys and values or CODE as a line, `did` (`"storage <account>"`, `"code <name>"`), `errors` what it couldn't (`"<name>: not in game"`, `"<name>: its CODE is not running"`, a thrown error's message); `[]` without steering; a time fires at its exact game time, a condition on the `run.check` grid (`start.js steerer`) |
 | `state` | the run's state exports ([state exports](export.md)): `{ exports: [{ label, at, t, dir }], pending }`; `at` the world clock (ISO), `t` game s since the base, `dir` relative to the live dir; `pending` the label of one asked for and not written yet |
 | `banks` | each account's bank now: `{ <account>: { gold, free } }` (free: the empty slots of its packs); `{}` outside a setup's run; the server's copy (a mounted one inside the bank first) |

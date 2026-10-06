@@ -276,7 +276,9 @@ function patchSockets() {
 		const r = orig.apply(this, arguments);
 		try {
 			if (live.req) live.closeReq();
-		} catch (e) {}
+		} catch (e) {
+			live.hookErr("request", e);
+		}
 		live.req = live.reqData = null;
 		return r;
 	};
@@ -500,11 +502,15 @@ class Live {
 				let name;
 				try {
 					name = player.items[num] && player.items[num].name;
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("consume", e);
+				}
 				const r = orig.apply(this, arguments);
 				try {
 					if (name && player.name && !player.npc) live.consumed(S, player, name, quantity);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("consume", e);
+				}
 				return r;
 			});
 		hook("kill_monster", (orig) =>
@@ -526,7 +532,9 @@ class Live {
 							live.okBy[by] = (live.okBy[by] || 0) + 1;
 						}
 					}
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("kill_monster", e);
+				}
 				return r;
 			});
 		hook("defeated_by_a_monster", (orig) =>
@@ -536,14 +544,18 @@ class Live {
 					n = player && !player.npc && player.name;
 					if (n) live.killer[n] = attacker ? attacker.type || attacker.name || "?" : "?";
 					if (n && live.mx[n]) xp0 = [player.level, player.xp];
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("defeated_by_a_monster", e);
+				}
 				try {
 					return orig.apply(this, arguments);
 				} finally {
 					try {
 						if (n) delete live.killer[n];
 						if (xp0) live.mx[n].xp_lost -= live.xpSince(player, xp0[0], xp0[1]);
-					} catch (e) {}
+					} catch (e) {
+						live.hookErr("defeated_by_a_monster", e);
+					}
 				}
 			});
 		hook("rip", (orig) =>
@@ -552,7 +564,9 @@ class Live {
 				try {
 					was = !!(player && player.rip);
 					burn = player && player.s && player.s.burned;
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("rip", e);
+				}
 				const r = orig.apply(this, arguments);
 				try {
 					if (player && !player.npc && player.name && !was && player.rip) {
@@ -563,7 +577,9 @@ class Live {
 						live.deaths.push({ v: live.sim.clock.now, name: player.name, level: player.level, map: player.map, x: Math.round(player.x), y: Math.round(player.y), by });
 						if (live.deaths.length > 20_000) live.deaths.splice(0, 10_000);
 					}
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("rip", e);
+				}
 				return r;
 			});
 		// combat: a context per complete_attack (it nests: a kill can start an instant attack)
@@ -572,7 +588,9 @@ class Live {
 				let pushed = false;
 				try {
 					pushed = live.push(attacker, info);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("complete_attack", e);
+				}
 				try {
 					return orig.apply(this, arguments);
 				} finally {
@@ -584,7 +602,9 @@ class Live {
 		const onHit = (entity, data) => {
 			try {
 				live.hit(S, entity, data);
-			} catch (e) {}
+			} catch (e) {
+				live.hookErr("complete_attack", e);
+			}
 		};
 		if (typeof S.xy_emit === "function")
 			S.xy_emit = vm.runInContext(`(function (orig, onHit) {
@@ -600,7 +620,9 @@ class Live {
 				const r = orig.apply(this, arguments);
 				try {
 					live.dealt(player, monster, damage);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("achievement_logic_monster_damage", e);
+				}
 				return r;
 			});
 		hook("encouragement_wound", (orig) =>
@@ -608,7 +630,9 @@ class Live {
 				const r = orig.apply(this, arguments);
 				try {
 					(live.pw = player), (live.pwNet = damage);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("encouragement_wound", e);
+				}
 				return r;
 			});
 		hook("encouragement_heal", (orig) =>
@@ -616,7 +640,9 @@ class Live {
 				const r = orig.apply(this, arguments);
 				try {
 					(live.ph = player), (live.phAmt = amount);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("encouragement_heal", e);
+				}
 				return r;
 			});
 		// a killing burn tick: contribution = the monster's hp before it
@@ -630,7 +656,9 @@ class Live {
 						(b.m.dmg.done.net += contribution), (b.s.net += contribution), (b.t.net += contribution);
 						live.onAdd(b.m, "dmg", contribution);
 					}
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("add_coop_points", e);
+				}
 				return r;
 			});
 		// a player's burn tick shows its "-N" just before the hp change: remember the hp before
@@ -638,7 +666,9 @@ class Live {
 			function (socket, entity) {
 				try {
 					if (live.base && entity && entity.is_player) (live.dtE = entity), (live.dtHp = entity.hp);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("disappearing_text", e);
+				}
 				return orig.apply(this, arguments);
 			});
 		hook("consume_mp", (orig) =>
@@ -646,11 +676,15 @@ class Live {
 				let mp0;
 				try {
 					mp0 = player.mp;
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("consume_mp", e);
+				}
 				const r = orig.apply(this, arguments);
 				try {
 					live.mana(player, mp0);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("consume_mp", e);
+				}
 				return r;
 			});
 		// successful skill uses (casts); the merchant's mluck by target. A reuse call is not a use: the server starts a
@@ -666,7 +700,9 @@ class Live {
 							t = name === "mluck" && q && q.p === player && q.data && S.players[S.id_to_id[q.data.id]];
 						if (t && t.name !== player.name) (live.merchant.per_fighter[t.name] ||= ledger()).mluck++;
 					}
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("consume_skill", e);
+				}
 				return r;
 			});
 		// xp and kill credits: every character before/after (the party split, level-ups inside)
@@ -675,11 +711,15 @@ class Live {
 				let pre;
 				try {
 					pre = live.awardPre(monster);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("issue_monster_award", e);
+				}
 				const r = orig.apply(this, arguments);
 				try {
 					if (pre) live.awardPost(pre, monster);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("issue_monster_award", e);
+				}
 				return r;
 			});
 		// each kill's chest, sealed at the end of drop_something(): its recipient (the monster's target) and items
@@ -687,7 +727,9 @@ class Live {
 			function (player, monster, chest, share) {
 				try {
 					live.dropped(S, player, monster, chest, share);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("encouragement_chest", e);
+				}
 				return orig.apply(this, arguments);
 			});
 		// a chest's encouragement gold (the receipts are gone after the call)
@@ -696,11 +738,15 @@ class Live {
 				let pre;
 				try {
 					pre = live.lootPre(S, chest, goldm);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("encouragement_loot", e);
+				}
 				const r = orig.apply(this, arguments);
 				try {
 					if (pre) live.lootPost(pre);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("encouragement_loot", e);
+				}
 				return r;
 			});
 		// requests: opened here (the handler runs next), closed by ServerSocket._packet after it
@@ -709,7 +755,9 @@ class Live {
 				const r = orig.apply(this, arguments);
 				try {
 					if (!r) live.open(S, player, method, data);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("instance_block_action", e);
+				}
 				return r;
 			});
 		hook("add_item", (orig) =>
@@ -717,7 +765,9 @@ class Live {
 				const r = orig.apply(this, arguments);
 				try {
 					live.added(S, player, item, args);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("add_item", e);
+				}
 				return r;
 			});
 		// success_response(obj) | (response, obj) | (response, place, obj): the object gets response and place
@@ -726,11 +776,15 @@ class Live {
 				let d;
 				try {
 					d = [data, place, response].find((x) => x !== null && typeof x === "object");
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("success_response", e);
+				}
 				const r = orig.apply(this, arguments);
 				try {
 					if (d) live.responded(d);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("success_response", e);
+				}
 				return r;
 			});
 		// a merchant's stand sale (trade_buy) or a buy order filled (trade_sell): the server records it on both sides
@@ -741,7 +795,9 @@ class Live {
 				try {
 					const q = live.req;
 					if (q && (q.method === "trade_buy" || q.method === "trade_sell") && player && item) live.traded(player, event, name, item, price, q.method === "trade_sell" ? "wish" : "stand");
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("add_to_trade_history", e);
+				}
 				return r;
 			});
 		hook("add_to_history", (orig) =>
@@ -749,7 +805,9 @@ class Live {
 				const r = orig.apply(this, arguments);
 				try {
 					live.history(player, event);
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("add_to_history", e);
+				}
 				return r;
 			});
 		// exchange results (nested calls; at an exchange's end in update_instance): items via add_item, gold here
@@ -758,7 +816,9 @@ class Live {
 				let g0;
 				try {
 					if (live.exDepth++ === 0 && live.mx[player.name] && !inHandler()) g0 = player.gold;
-				} catch (e) {}
+				} catch (e) {
+					live.hookErr("exchange", e);
+				}
 				try {
 					return orig.apply(this, arguments);
 				} finally {
@@ -768,7 +828,9 @@ class Live {
 							f = d && live.mx[player.name].gold_flow;
 						if (d > 0) f.other += d;
 						else if (d < 0) f.other_out -= d;
-					} catch (e) {}
+					} catch (e) {
+						live.hookErr("exchange", e);
+					}
 				}
 			});
 		this.G = G;
@@ -1025,7 +1087,9 @@ class Live {
 				if (it) r.grace0 = { grace: it.grace || 0, ug: [(player.p.ugrace || [])[lv] ?? null, ((S.S && S.S.ugrace) || [])[lv] ?? null], og: player.p.ograce || 0 };
 			} else if (method === "compound" && data && Array.isArray(data.items))
 				r.grace0 = { grace: data.items.reduce((a, n) => a + ((player.items[n] && player.items[n].grace) || 0), 0), og: player.p.ograce || 0 };
-		} catch (e) {}
+		} catch (e) {
+			this.hookErr("request", e);
+		}
 		if (method === "open_chest") {
 			const ch = S.chests[data && data.id];
 			if (!ch) return void (r.chest = false);
@@ -1174,7 +1238,7 @@ class Live {
 			if (got !== (q.gold || 0) - r.g[i] - ((r.enc && r.enc.get(q)) || 0)) bad = true;
 			else extra += got - tax(Math.round(obj.gold * sh * (gm - r.aura)) + eg);
 		}
-		if (bad) return void m.exact.angel_unmatched++;
+		if (bad) return void (m.exact.angel_unmatched++, this.hookErr("encouragement_loot (Angel)", new Error("a chest's gold under Angel's aura doesn't match the server's formula (the gold of a chest, of its egold or of an encouragement receipt)")));
 		m.exact.angel_gold += extra;
 		m.exact.angel_chests++;
 	}
@@ -1258,21 +1322,29 @@ class Live {
 				this.probe();
 				// the base, and its snapshot (the history's row at t 0)
 				if (!this.base && this.tryBase(now)) (this.last = now), this.write(false);
-			} catch (e) {}
+			} catch (e) {
+				this.hookErr("probe", e);
+			}
 		if (this.base && v - this.sv >= SAMPLE_MS)
 			try {
 				this.sample(v);
-			} catch (e) {}
+			} catch (e) {
+				this.hookErr("sample", e);
+			}
 		if (this.grid && v >= this.grid.next)
 			try {
 				this.sample(v);
 				this.gridRow(Math.floor(v / this.gridMs) * this.gridMs);
-			} catch (e) {}
+			} catch (e) {
+				this.hookErr("grid", e);
+			}
 		if (now - this.last < this.every) return;
 		this.last = now;
 		try {
 			this.poll();
-		} catch (e) {}
+		} catch (e) {
+			this.hookErr("poll", e);
+		}
 		try {
 			this.write(false);
 		} catch (e) {
@@ -1646,9 +1718,23 @@ class Live {
 		L.last.push(...x.lines);
 		if (L.last.length > LOG_KEEP) L.last.splice(0, L.last.length - LOG_KEEP);
 	}
-	// notes.chronal: the getters no longer called, "<name>: <field> disabled (<why>)"; each warned about once
+	// A failure of chronal's own measuring code (a hook around a game function, a probe, a sample; or a measurement
+	// that doesn't add up): never the run's (they catch), never quiet either. Counted per hook, the first of each
+	// printed once; the snapshot's hook_errors and notes.chronal list them. CHRONAL_STRICT_HOOKS=1 (npm test, the weekly
+	// upstream check): the process exits 1 at its end. A changed game function is the usual cause (an argument or a
+	// field it no longer has).
+	hookErr(name, e) {
+		const h = (this.hookErrs ||= new Map()),
+			x = h.get(name) || h.set(name, { n: 0, first: String((e && e.stack) || e).split("\n").slice(0, 2).map((l) => l.trim()).join(" ") }).get(name);
+		if (x.n++) return;
+		console.warn(`[sim] chronal's hook ${name} failed: ${x.first}`);
+		if (process.env.CHRONAL_STRICT_HOOKS === "1") process.exitCode = 1;
+	}
+	// notes.chronal: the getters no longer called, "<name>: <field> disabled (<why>)" (each warned about once); the
+	// hooks that failed
 	alSimNotes() {
 		const out = [];
+		for (const [k, x] of this.hookErrs || []) out.push(`hook ${k} failed ${x.n}x: ${x.first}`);
 		for (const [name, c] of Object.entries(this.codes))
 			for (const [k, why] of Object.entries(c.impure || {})) {
 				const t = `${name}: ${k} disabled (${WHY[why] || why})`;
@@ -1703,10 +1789,14 @@ class Live {
 			if (!this.base) this.tryBase(performance.now());
 			if (this.base) this.sample(this.sim.clock.now);
 			if (this.grid) this.gridRow(this.sim.clock.now, true);
-		} catch (e) {}
+		} catch (e) {
+			this.hookErr("final sample", e);
+		}
 		try {
 			this.mlv.end = mlevels(this.sim.server);
-		} catch (e) {}
+		} catch (e) {
+			this.hookErr("monster levels", e);
+		}
 		try {
 			if (this.grid) fs.closeSync(this.grid.fd);
 			if (this.items) fs.closeSync(this.items.fd);
@@ -1871,7 +1961,7 @@ class Live {
 		const coarse = this.coarse,
 			gr = this.grid;
 		const out = {
-			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 8,
+			id: this.id, tag: this.tag, ...this.meta, schema: 2, schema_minor: 9,
 			precision: { dmg_done: "net", dmg_taken: "net", heal: "net", overkill: "exact", overheal: "exact", items: "exact", gold: "exact", gold_other: "exact", mana_by_skill: "exact",
 				sample_ms: coarse ? null : SAMPLE_MS, modes: coarse ? "coarse" : "exact", grid: coarse ? null : "exact", attrib: coarse ? null : "exact" },
 			history_cols: HISTORY_COLS, roster,
@@ -1894,7 +1984,7 @@ class Live {
 			world: { clock: sim.clock.now, start: new Date(sim.clock.start).toISOString(), seasons: this.setup ? this.setup.resolved.world.seasons || [] : [], season_switches: this.seasonSwitches, seasons_on: SEASON_NAMES.filter((k) => S.events && S.events[k]), anniversary: !!(S.events && S.events.anniversary), ugrace: S.S && S.S.ugrace ? Array.from(S.S.ugrace) : null, spawns: this.setup ? this.setup.resolved.world.spawns || [] : [], forced: this.forcedEvents, events: this.eventsOf(S), globals: { goldm: S.goldm, luckm: S.luckm, xpm: S.xpm }, age_ms: this.ageMs, mlevels: this.mlv },
 			grid: gr ? { step_ms: this.gridMs, cols: GRID_COLS, file: path.basename(gr.path), lines: gr.lines, gen: gr.gen, tail: gr.tail } : null,
 			items_log: this.items ? { file: path.basename(this.items.path), lines: this.items.lines, bytes: this.items.bytes, capped: this.items.capped } : null,
-			players, notes: this.notes, steer: this.steers, banks: this.banks(list),
+			players, notes: this.notes, hook_errors: Object.fromEntries([...(this.hookErrs || [])].map(([k, x]) => [k, { n: x.n, first: x.first }])), steer: this.steers, banks: this.banks(list),
 			state: { exports: this.exports, pending: this.exportWanted ? this.exportWanted.label : null },
 		};
 		return out;

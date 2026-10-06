@@ -12,7 +12,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "CHRONAL_STRICT_HOOKS=1 node --test test/*.test.js"
   },
   "dependencies": {
     "acorn": "^8.18.0",

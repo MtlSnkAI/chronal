@@ -18,6 +18,10 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   deprecates.
 - The weekly upstream check opens a new issue each week its tests fail and closes the week before's (it commented on
   one open issue, which could be a user's report).
+- chronal's measuring code no longer fails silently: a hook around a game function (or a probe, a sample) that throws,
+  or a chest's gold under Angel's aura that doesn't match the server's formula, is printed once and listed in the
+  snapshot (`hook_errors`, schema 2.9; `notes.chronal`); `tools/live_check.js` checks it. The tests (`npm test`, the
+  weekly upstream check) fail on one, so a game change that breaks a hook shows up.
 
 ## [0.8.0] - 2026-10-06
 

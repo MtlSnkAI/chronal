@@ -1,4 +1,4 @@
-// Reconciles a live snapshot (schema v2.6) with itself, its grid file and the server's own counters, and optionally
+// Reconciles a live snapshot (schema v2.6; v2.9: hook_errors) with itself, its grid file and the server's own counters, and optionally
 // with a chronal run RESULT (--result). Exit 1 when a check fails.
 //   node tools/live_check.js live/<id>.json [RESULT.json] [--quiet]
 // Per character:
@@ -74,6 +74,8 @@ const histOk = (h, from = 0) => {
 	return "";
 };
 console.log(`${s.tag} (${s.script}, ${s.strategy}) ${Math.round(M / 60000)} game min measured${s.done ? "" : s.end && s.end.reason === "failed" ? ", failed: " + s.end.detail : ", still running"}`);
+// chronal's measuring code: no hook failed (schema 2.9; a failed one means the numbers around it are off)
+if (s.hook_errors) ok(!Object.keys(s.hook_errors).length, "chronal's hooks: none failed", Object.entries(s.hook_errors).map(([k, x]) => `${k} ${x.n}x: ${x.first}`).join("; "));
 for (const p of s.players) {
 	if (!p.dmg) {
 		info(`${p.name}: no v2 counters`);
