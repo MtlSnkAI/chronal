@@ -14,6 +14,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 - New sim: a pull's warnings are small chips on one line: its characters online in one ("online: MtlSnk, MtlSnkRan"),
   each other warning by its first words, the whole text on hover. A whole sentence per chip filled several lines.
+- The weekly upstream check uses actions/checkout and actions/setup-node v7 (Node 24): v4 ran on Node 20, which GitHub
+  deprecates.
 
 ## [0.8.0] - 2026-10-06
 
