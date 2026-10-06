@@ -2,8 +2,8 @@
 // startSetup(): a resolved setup (setup.js resolveSetup) into a new sim, in a fixed call order: createSim, the world's
 // age (world.age: the clock runs that long with no characters, as a server up that long that nobody played on: its
 // monsters level up), each character in setup order (the account's user doc, i.e. its bank, with its first character;
-// its browser storage before its first page), the account age, then
-// until every character is in game with its CODE running. steerer(): the setup's steering at its times.
+// its browser storage before its first page), the account age, then the pages in setup order (at most 5 not in game
+// at once) until every character is in game with its CODE running. steerer(): the setup's steering at its times.
 const { createSim, roiOption } = require("./sim");
 const { config } = require("../lib/config");
 const { characterOver, accountUser, ageOf, parseDuration, storageEntries, steerText } = require("../lib/setup");
@@ -29,9 +29,8 @@ async function startSetup(resolved, bundles, { live, record, quiet, root } = {})
 		await sim.run(age);
 		if (sim.live) sim.live.aged(sim.clock.now - t0);
 	}
-	const clients = {},
-		order = [],
-		seen = new Set();
+	const seen = new Set(),
+		logins = [];
 	// the account's characters as a page loads them (what start_character may start)
 	const owned = (acc) => resolved.characters.filter((x) => x.account === acc).map((x) => ({ name: x.name, type: x.class, level: x.state ? x.state.level : 1, online: x.online !== false }));
 	for (const c of resolved.characters) {
@@ -46,9 +45,8 @@ async function startSetup(resolved, bundles, { live, record, quiet, root } = {})
 			sim.declare({ ...o, codeOf: slotOf(b) });
 			continue;
 		}
-		const cl = sim.addCharacter({ ...o, code: b.text, files: b.files, codeOf: slotOf(b) });
-		clients[c.name] = cl;
-		order.push(cl);
+		const { over, user, ...rest } = o;
+		logins.push({ ...rest, fx: sim.createCharacter({ name: c.name, type: c.class, over, account: c.account, user }), code: b.text, files: b.files, codeOf: slotOf(b) });
 	}
 	// an account age_days old: the user and its characters created then, and the age each character keeps
 	// (info.p.encouragement, as live saves it); before any character logs in
@@ -65,8 +63,27 @@ async function startSetup(resolved, bundles, { live, record, quiet, root } = {})
 			ch.created = new Date(age.created);
 		}
 	}
+	// the pages log in in setup order, at most 5 at a time not in game yet: the server disconnects every other page of an
+	// IP once more than 5 of its sockets have no character (server.js is_socket_allowed), as a browser's pages load
+	// one after another on live. The page in game now of each name (a page the server disconnected loads again as a new
+	// client).
+	const cur = (name) => sim.clients.findLast((x) => x.name === name && x.online !== false) || null;
+	const pending = async () => {
+		let n = 0;
+		for (const l of logins) if (l.in && !(cur(l.name) && (await cur(l.name).query("!!character")))) n++;
+		return n;
+	};
+	for (const l of logins) {
+		if ((await pending()) >= 5) await sim.until(async () => sim.halted || (await pending()) < 5, 60000);
+		const { in: _, ...o } = l;
+		sim.addCharacter(o);
+		l.in = true;
+	}
 	const ok = await sim.until(async () => {
-		for (const c of order) if (!(await c.query("!!(character && code_active)"))) return false;
+		for (const l of logins) {
+			const c = cur(l.name);
+			if (!(c && (await c.query("!!(character && code_active)")))) return false;
+		}
 		return true;
 	}, 60000);
 	// failed (a CODE asked for a slot the setup doesn't give): ended "failed" here; halted (a signal, the dashboard): the caller stops
@@ -75,7 +92,8 @@ async function startSetup(resolved, bundles, { live, record, quiet, root } = {})
 		throw new Error(sim.failed);
 	}
 	if (!ok && !sim.halted) throw new Error(`the characters of "${resolved.name}" didn't get into the game`);
-	return { sim, clients, order };
+	const order = logins.map((l) => cur(l.name)).filter(Boolean);
+	return { sim, clients: Object.fromEntries(order.map((c) => [c.name, c])), order };
 }
 
 // the query that runs a steering entry's code in a character's CODE (the game's call_code_function("eval"), as

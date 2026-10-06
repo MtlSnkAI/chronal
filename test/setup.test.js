@@ -159,8 +159,10 @@ test("states: characterOver gives the state's character (export, export + slots,
 	const { resolved } = S.resolveSetup(s, { G });
 	const [e1, e2, f1, f2] = resolved.characters;
 	const x = EXP.character;
-	// over(c, at, extra): an export's numbers at a place, merged into a new character
-	const over = (c, at, extra = {}) => ({ level: c.level, xp: c.xp, ...extra, info: { gold: c.gold, items: c.items, slots: c.slots, ...at, ...(extra.info || {}) } });
+	// over(c, at, extra): an export's numbers at a place, merged into a new character (its gear: the export's, or the
+	// given slots, every starter slot they don't list emptied)
+	const empty = Object.fromEntries(Object.keys(S.starter(G, "ranger")).map((k) => [k, null]));
+	const over = (c, at, extra = {}) => ({ level: c.level, xp: c.xp, ...extra, info: { gold: c.gold, items: c.items, ...at, ...(extra.info || {}), slots: { ...empty, ...((extra.info && extra.info.slots) || c.slots) } } });
 	const at = (m, X, Y) => ({ map: m, in: m, x: X, y: Y });
 	assert.equal(character("ranger", S.characterOver(e1)), character("ranger", over(x, at("spookytown", 677, 129))));
 	assert.equal(character("ranger", S.characterOver(e2)), character("ranger", over(x, at("main", -1, 2), { level: 60, xp: 0, info: { slots: { mainhand: { name: "bow", level: 9 }, ring1: { name: "ringsj", level: 2 } } } })));
@@ -169,7 +171,7 @@ test("states: characterOver gives the state's character (export, export + slots,
 	// the resolved state is the character's (over the starter gear slot by slot, as the sim makes it: a given item takes
 	// none of the starter's fields, not its gift; a starter item not replaced stays a gift)
 	assert.deepEqual(f2.state, { level: 60, xp: 0, gold: 0, items: [{ name: "hpot0", q: 200, gift: 1 }, { name: "mpot0", q: 200, gift: 1 }], slots: { mainhand: { name: "wand", level: 7 }, helmet: null, shoes: null } });
-	assert.deepEqual(e1.state.slots, { mainhand: { name: "firebow", level: 7 }, helmet: null, shoes: { name: "shoes", level: 0, gift: 1 }, chest: { name: "coat", level: 8, stat_type: "dex" } });
+	assert.deepEqual(e1.state.slots, { mainhand: { name: "firebow", level: 7 }, helmet: null, shoes: null, chest: { name: "coat", level: 8, stat_type: "dex" } }); // (the export has no shoes: no starter's)
 	assert.deepEqual(f1.at, { map: "main", x: 5, y: 6 }); // main's spawn
 	assert.deepEqual(resolved.source.characters.E1, { code_dir: null, recursive: false, code_git: resolved.source.characters.E1.code_git, entry: null, file: path.join(d, "farm.js"), append: [], extra: [], prelude: null, build: null, state_from: path.join(d, "Ran.json"), exported_at: EXP.exported_at });
 });
@@ -206,6 +208,24 @@ test("accounts: accountUser (flags, the bank from an export or inline, none), ag
 	assert.deepEqual(resolved.source.accounts, { a: { bank_from: path.join(d, "Ran.json") } });
 	assert.equal(S.ageOf(resolved.accounts.a, 1e12), null);
 	assert.deepEqual(S.ageOf(resolved.accounts.b, 1e12), { created: 1e12 - 1.5 * 86400e3, oldest: 1e12 - 1.5 * 86400e3 });
+});
+
+test("bank: from an export it keeps unlocked and rewards, notes the keys it leaves out; packs in bank_b/bank_u unlock those rooms; inline unlocked/rewards", () => {
+	const d = layout();
+	write(d, "Pulled.json", JSON.stringify({ ...EXP, bank: { gold: 9, items0: [], items8: [{ name: "y" }], items24: [], rewards: ["c0"], shells: 40 } }));
+	write(d, "Unl.json", JSON.stringify({ ...EXP, bank: { gold: 1, items8: [], unlocked: { bank_b: "2026-01-01T00:00:00.000Z" } } }));
+	const s = S.loadSetup(setupFile(d, {
+		defaults: { code: { file: "farm.js" } },
+		accounts: { p: { bank: { from: "Pulled.json" } }, u: { bank: { from: "Unl.json" } }, i: { bank: { gold: 3, items9: [], unlocked: { bank_b: true }, rewards: [] } } },
+		characters: [{ name: "P", class: "ranger", account: "p" }, { name: "U", class: "ranger", account: "u" }, { name: "I", class: "ranger", account: "i" }],
+	}), { G });
+	const { resolved, warnings } = S.resolveSetup(s, { G });
+	assert.deepEqual(resolved.accounts.p.bank, { gold: 9, items0: [], items8: [{ name: "y" }], items24: [], rewards: ["c0"], unlocked: { bank_b: true, bank_u: true } });
+	assert.deepEqual(resolved.accounts.u.bank, { gold: 1, items8: [], unlocked: { bank_b: "2026-01-01T00:00:00.000Z" } });
+	assert.deepEqual(resolved.accounts.i.bank, { gold: 3, items9: [], unlocked: { bank_b: true }, rewards: [] });
+	assert.deepEqual(warnings, ["account p: bank.from Pulled.json: shells not taken (gold, items<N>, unlocked, rewards are)", "account p: bank bank_b, bank_u unlocked (it has packs there)"]);
+	assert.equal(S.accountUser(resolved.accounts.p).info.unlocked.bank_u, true);
+	assert.throws(() => S.loadSetup(setupFile(d, { defaults: { code: { file: "farm.js" } }, accounts: { x: { bank: { unlocked: ["bank_b"] } } }, characters: [{ name: "X", class: "ranger", account: "x" }] }), { G }), /bank\.unlocked/);
 });
 
 test("setupKey: the run knobs, name, strategy, notes and provenance don't count; states, CODE, world, party and the sim version do", () => {
@@ -465,6 +485,44 @@ setInterval(function () {
 		assert.ok(p.kills_by.goo >= 3 && p.kills === p.kills_by.goo, JSON.stringify(p.kills_by));
 		assert.equal(Math.round(r.virtualMs / 1000), Math.round(at(bees)) + 40, "(the checks' t and the steps' t: from the start, no warm-up)");
 		assert.ok(sim.clock.now - t0 === r.virtualMs);
+	} finally {
+		await sim.close();
+	}
+});
+
+test("start.js: 6 online at the start (3 accounts, a fighter and a merchant each): all in game, no page disconnected (at most 5 log in at once)", { timeout: 180000 }, async (t) => {
+	const { config } = require("../lib/config");
+	if (!fs.existsSync(path.join(config().al_root, "design"))) return t.skip(`no game at ${config().al_root}`);
+	const { startSetup } = require("../sim/start");
+	const d = layout();
+	const chars = ["a", "b", "c"].flatMap((acc, i) => [
+		{ name: "Fi" + acc.toUpperCase(), class: ["rogue", "ranger", "priest"][i], account: acc, code: { file: "farm.js" } },
+		{ name: "Me" + acc.toUpperCase(), class: "merchant", account: acc, code: { file: "farm.js" } },
+	]);
+	const { resolved, bundles } = S.resolveSetup(S.loadSetup(setupFile(d, { characters: chars })));
+	const { sim, order } = await startSetup(resolved, bundles, { live: false });
+	try {
+		assert.deepEqual(order.map((c) => c.name), chars.map((c) => c.name));
+		for (const c of order) assert.equal(await c.query("character.name"), c.name);
+		assert.equal(sim.clients.length, 6, "no page loaded again (a disconnect)");
+	} finally {
+		await sim.close();
+	}
+});
+
+test("start.js follows a page that the server disconnects at the start (its CODE's disconnect()): the reloaded page is the character's", { timeout: 120000 }, async (t) => {
+	const { config } = require("../lib/config");
+	if (!fs.existsSync(path.join(config().al_root, "design"))) return t.skip(`no game at ${config().al_root}`);
+	const { startSetup } = require("../sim/start");
+	const d = layout();
+	write(d, "dc.js", 'if (Date.now() < Date.parse("2026-01-01T00:00:05Z")) disconnect();');
+	const { resolved, bundles } = S.resolveSetup(S.loadSetup(setupFile(d, { world: { start: "2026-01-01T00:00:00Z" }, characters: [{ name: "Dc", class: "ranger", code: { file: "dc.js" } }] })));
+	const { sim, order, clients } = await startSetup(resolved, bundles, { live: false });
+	try {
+		assert.ok(sim.clients.length > 1, "it disconnected and loaded again");
+		assert.equal(order[0], sim.clients[sim.clients.length - 1]);
+		assert.equal(clients.Dc, order[0]);
+		assert.equal(await order[0].query("character.name"), "Dc");
 	} finally {
 		await sim.close();
 	}

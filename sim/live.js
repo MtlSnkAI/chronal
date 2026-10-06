@@ -290,6 +290,21 @@ function onExit(code) {
 			} catch (e) {}
 }
 
+// A run's id: its tag and its start (ms), or the next ms after it that is free in dir: an exclusive create of
+// <id>.json (two runs of one tag that start in the same ms never share files) that no removed run had
+function reserveId(dir, base, t) {
+	for (; ; t++) {
+		const id = base + "--" + t;
+		if (fs.existsSync(path.join(dir, "removed", id + ".json"))) continue;
+		try {
+			fs.closeSync(fs.openSync(path.join(dir, id + ".json"), "wx"));
+			return id;
+		} catch (e) {
+			if (e.code !== "EEXIST") throw e;
+		}
+	}
+}
+
 class Live {
 	constructor(sim, { dir, tag, every = 1000, setup = null } = {}) {
 		this.sim = sim;
@@ -300,7 +315,8 @@ class Live {
 		this.setup = rs ? setup : null;
 		this.started = Date.now();
 		this.tag = String(tag || `${script} s${rs ? rs.run.seed : sim.seed}`);
-		this.id = this.tag.replace(/[^\w.-]+/g, "_").slice(0, 80) + "--" + this.started;
+		fs.mkdirSync(this.dir, { recursive: true });
+		this.id = reserveId(this.dir, this.tag.replace(/[^\w.-]+/g, "_").slice(0, 80), this.started);
 		this.file = path.join(this.dir, this.id + ".json");
 		// run control: the dashboard's requests (ack: the last seq applied), how it ended, how to run it again
 		this.ctl = path.join(this.dir, this.id + ".ctl");
@@ -388,7 +404,6 @@ class Live {
 			};
 		}
 		this.setupKey();
-		fs.mkdirSync(this.dir, { recursive: true });
 		if (rs) {
 			// the resolved setup beside the snapshot, its CODE in the store (content-addressed, written once)
 			SETUP.storeBundles(setup.bundles, path.join(this.dir, "code"));
@@ -625,13 +640,14 @@ class Live {
 				} catch (e) {}
 				return r;
 			});
-		// successful skill uses (casts); the merchant's mluck by target
+		// successful skill uses (casts); the merchant's mluck by target. A reuse call is not a use: the server starts a
+		// reuse_cooldown later with it (invis on reappearing, pickpocket/fishing/mining on a success)
 		hook("consume_skill", (orig) =>
-			function (player, name) {
+			function (player, name, reuse) {
 				const r = orig.apply(this, arguments);
 				try {
 					const m = player && live.mx[player.name];
-					if (m && name) {
+					if (m && name && !reuse) {
 						inc(m.casts, name, 1);
 						const q = live.req,
 							t = name === "mluck" && q && q.p === player && q.data && S.players[S.id_to_id[q.data.id]];
@@ -1029,8 +1045,12 @@ class Live {
 		else if (r.used === "mp" && p.mp > r.mp) m.mana.gained.regen += p.mp - r.mp;
 		// upgrade/compound: rolled at request time (the item comes back or not when the queue ends); grace offerings aren't rolls
 		if (r.method === "upgrade" && p.q && p.q.upgrade && p.q.upgrade !== r.qu && p.p && p.p.u_type !== "offering") {
-			const it = p.p.u_item || p.p.u_itemx;
-			if (it) {
+			const it = p.p.u_item || p.p.u_itemx,
+				ph = p.items && p.items[p.q.upgrade.num];
+			// an ingot or a nugget with no scroll: a roll to make the item shiny, its level unchanged (not an upgrade)
+			if (it && ph && ph.name === "placeholder" && ph.p && ph.p.scroll === null && ph.p.offering)
+				this.itemEvent({ k: "shiny", who: p.name, item: it.name, level: it.level || 0, offering: ph.p.offering, ok: !p.p.u_fail });
+			else if (it) {
 				const u = m.items.upgraded[it.name] || (m.items.upgraded[it.name] = { ok: 0, fail: 0, lost: 0 }), ok = !!p.p.u_item && !p.p.u_fail, lv = it.level || 0;
 				ok ? u.ok++ : u.fail++;
 				if (!p.p.u_item) u.lost++;
@@ -1503,7 +1523,8 @@ class Live {
 			if (items[i] && items[i].name === "placeholder" && p.p && (up || co)) add(up ? p.p.u_item : p.p.c_item);
 			else add(items[i]);
 		}
-		for (const k in p.slots || {}) if (k !== "elixir") add(p.slots[k]);
+		// (a trade slot's buy order, b: true, is wanted, not held)
+		for (const k in p.slots || {}) if (k !== "elixir" && !(p.slots[k] && p.slots[k].b)) add(p.slots[k]);
 		if (p.type === "merchant") {
 			const bank = this.bankOf(p);
 			for (const k in bank || {}) if (/^items\d+$/.test(k) && Array.isArray(bank[k])) for (const it of bank[k]) add(it);
@@ -1886,4 +1907,4 @@ function liveOf(sim, o) {
 	}
 }
 
-module.exports = { Live, liveOf, HISTORY_COLS, GRID_COLS, STATS, GEAR };
+module.exports = { Live, liveOf, reserveId, HISTORY_COLS, GRID_COLS, STATS, GEAR };

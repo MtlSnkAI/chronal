@@ -109,7 +109,9 @@ In run order (it seeds the client threads).
 | `online` | `true` | `false`: on its account but not in game at the start; CODE may start it (Switching characters, below) |
 
 At most 3 characters and 1 merchant per account in game at the start, and at most 3 besides merchants in all (the
-game's limits per account and per IP: a run's characters all play from one).
+game's limits per account and per IP: a run's characters all play from one). Their pages log in in setup order, at
+most 5 not in game at once: the server disconnects an IP's other pages when more than 5 of its sockets have no
+character yet, so more than 5 online characters start a few game seconds apart, as a browser's pages load on live.
 
 **state** (all optional):
 - `from`: an export (`chronal-export/1`: the snippet's, or a pull's `<Name>.json`), with `level`, `xp`, `gold`,
@@ -117,7 +119,8 @@ game's limits per account and per IP: a run's characters all play from one).
 - Without `from`: a new character: L1, 0 xp, 0 gold, 200 hpot0 and 200 mpot0, the class's starter gear (`slots`
   replace the starter weapon, helmet and shoes).
 - Gear goes over the class's starter gear slot by slot, as the game makes a character: a given item replaces the
-  starter's whole.
+  starter's whole. With `from`, the gear is the export's (or the given `slots`) and nothing else: a starter slot it
+  doesn't list starts empty.
 - `skin`, `cx` (cosmetics `{ <place>: <cosmetic> }`): its looks, given or the export's; else the class's default look.
 - Never taken from an export: conditions, the merchant stand, the upgrade queue.
 
@@ -129,7 +132,7 @@ farm }]`; anything else passes through to the CODE.
 | key | default | |
 |---|---|---|
 | `age_days` | `0` | 0 = created at the run's start, so New Player (x5 xp at first, 40 days in 10-day phases, ends at L80) as a new player gets it; N = created N days before; from 40 on no New Player |
-| `bank` | a new account's | `{ "from": <export> }` (its bank gold and packs) or `{ "gold": 5000, "items0": [], ... }`; none: 1000 gold, two empty packs |
+| `bank` | a new account's | `{ "from": <export> }` (its bank gold, packs, `unlocked` rooms and claimed `rewards`; other keys are left out, with a warning) or `{ "gold": 5000, "items0": [], ..., "unlocked": { "bank_b": true }, "rewards": [] }`; none: 1000 gold, two empty packs. A bank with packs in `bank_b` (items8-23) or `bank_u` (items24+) gets that room unlocked (an API pull's has no `unlocked`) |
 | `storage` | `{}` | what the CODE's `get(key)` returns at the start; `null` unsets |
 | `local_storage` | `{}` | raw `localStorage` keys (text) |
 

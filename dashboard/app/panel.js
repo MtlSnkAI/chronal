@@ -308,10 +308,11 @@ function evNote(w, L) {
 	return null;
 }
 const capNote = (ev) => { const c = ev.length && ev[ev.length - 1].k === "cap" ? ev[ev.length - 1] : null; return c ? html`<p class="mnote w">${icon("condition_bad")} the record stopped at ${hms(c.t * 1000)} (16 MB): nothing after it here</p>` : null; };
-const stepOf = (e) => (e.k === "stat" ? (e.stat || "stat") + " scroll" : "+" + e.from + " → +" + e.to);
+const stepOf = (e) => (e.k === "stat" ? (e.stat || "stat") + " scroll" : e.k === "shiny" ? "shiny (" + e.offering + ")" : "+" + e.from + " → +" + e.to);
+const levelOf = (e) => (e.k === "stat" ? 0 : e.k === "shiny" ? e.level : e.from);
 const outcome = (e) => (e.ok ? html`<span class="ok">succeeded</span>` : html`<span class="ko">${e.lost ? "failed, item lost" : "failed"}</span>`);
 function ItemsBox({ w }) {
-	const L = useItems(w), ev = L ? L.ev : [], tries = ev.filter((e) => e.k === "upgrade" || e.k === "compound" || e.k === "stat"), loot = ev.filter((e) => e.k === "loot");
+	const L = useItems(w), ev = L ? L.ev : [], tries = ev.filter((e) => e.k === "upgrade" || e.k === "compound" || e.k === "stat" || e.k === "shiny"), loot = ev.filter((e) => e.k === "loot");
 	const seg = html`<div class="gh"><${ItemsSeg} n=${[fmtN(tries.filter((e) => e.ok).length, 0), fmtN(loot.reduce((a, e) => a + num(e.q), 0), 0)]} /><span class="gu">${V.itab === "up" ? "each try: its levels and how it went" : "who looted what, and when"}</span></div>`;
 	const none = evNote(w, L);
 	let body;
@@ -320,7 +321,7 @@ function ItemsBox({ w }) {
 		// per item and step: the tries, who tried, how they went
 		const steps = new Map();
 		for (const e of tries) {
-			const key = e.k + "|" + e.item + "|" + (e.k === "stat" ? e.stat : e.from);
+			const key = e.k + "|" + e.item + "|" + (e.k === "stat" ? e.stat : levelOf(e));
 			const r = steps.get(key) || steps.set(key, { e, ok: 0, fail: 0, lost: 0, by: new Set() }).get(key);
 			e.ok ? r.ok++ : r.fail++;
 			if (e.lost) r.lost++;
@@ -328,9 +329,9 @@ function ItemsBox({ w }) {
 		}
 		const list = [...steps.values()].sort((a, b) => a.e.item.localeCompare(b.e.item) || a.e.k.localeCompare(b.e.k) || (a.e.from ?? 0) - (b.e.from ?? 0));
 		body = !tries.length ? html`<p class="mnote">no upgrades or compounds in this run</p>` : [html`<div class="iscroll"><table class="itab"><tbody><tr><th>item</th><th class="l">step</th><th class="l">by</th><th>succeeded</th><th>failed</th><th data-tip="items lost with a failed upgrade">lost</th><th>success</th></tr>
-			${list.map((r) => html`<tr><td><${Itm} name=${r.e.item} level=${r.e.k === "stat" ? 0 : r.e.from} bare /></td><td class="l">${stepOf(r.e)}${r.e.k === "compound" ? html` <small class="gu">compound</small>` : null}</td><td class="l">${[...r.by].map((x) => html`<${Who} w=${w} name=${x} />`)}</td><td>${r.ok || ""}</td><td>${r.fail || ""}</td><td>${r.lost || ""}</td><td>${pct(r.ok / (r.ok + r.fail))}</td></tr>`)}</tbody></table></div>`,
+			${list.map((r) => html`<tr><td><${Itm} name=${r.e.item} level=${levelOf(r.e)} bare /></td><td class="l">${stepOf(r.e)}${r.e.k === "compound" ? html` <small class="gu">compound</small>` : null}</td><td class="l">${[...r.by].map((x) => html`<${Who} w=${w} name=${x} />`)}</td><td>${r.ok || ""}</td><td>${r.fail || ""}</td><td>${r.lost || ""}</td><td>${pct(r.ok / (r.ok + r.fail))}</td></tr>`)}</tbody></table></div>`,
 			html`<${Fold} k="+tries" title=${"Each try (" + fmtN(tries.length, 0) + ")"}><div class="iscroll"><table class="itab"><tbody><tr><th>when</th><th class="l">character</th><th class="l">item</th><th class="l">step</th><th class="l">outcome</th></tr>
-				<${Rows} rows=${tries.slice().reverse()} cols=${5} row=${(e) => html`<tr>${when(e)}<td class="l"><${Who} w=${w} name=${e.who} /></td><td class="l"><${Itm} name=${e.item} level=${e.k === "stat" ? 0 : e.from} bare /></td><td class="l">${stepOf(e)}${e.k === "compound" ? html` <small class="gu">compound</small>` : null}</td><td class="l">${outcome(e)}</td></tr>`} /></tbody></table></div></${Fold}>`];
+				<${Rows} rows=${tries.slice().reverse()} cols=${5} row=${(e) => html`<tr>${when(e)}<td class="l"><${Who} w=${w} name=${e.who} /></td><td class="l"><${Itm} name=${e.item} level=${levelOf(e)} bare /></td><td class="l">${stepOf(e)}${e.k === "compound" ? html` <small class="gu">compound</small>` : null}</td><td class="l">${outcome(e)}</td></tr>`} /></tbody></table></div></${Fold}>`];
 	} else {
 		// what was looted (a chip per item: its count), then each loot
 		const per = new Map();

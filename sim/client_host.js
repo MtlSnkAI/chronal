@@ -34,20 +34,34 @@ const CLIENT_FILES = [
 const RUNNER_FILES = ["js/jquery/jquery-3.2.0.min.js", "common/js/common_functions.js", "js/old_common_functions.js", "js/runner_functions.js", "js/runner_compat.js"];
 const LATE_FILES = ["js/pixel_fonts.js", "js/npc_obstruction_hint.js"];
 
-// main.js get_browser_data(): the server's G plus a few browser-only fields that live as server-context globals.
+// main.js get_browser_data(): what /data.js serves as G, in its order.
 const BROWSER_G_FIELDS = ["version", "achievements", "animations", "monsters", "sprites", "maps", "geometry", "npcs", "tilesets", "imagesets", "items", "sets", "craft", "titles", "tokens", "dismantle", "conditions", "cosmetics", "projectiles", "classes", "dimensions", "levels", "upgrades", "compounds", "monster_gold", "positions", "skills", "games", "events", "images", "multipliers", "docs", "drops"];
+// main.js's design files, in its order (dependencies first). /data.js serves them as they are: the running server's
+// copies are not what a client gets (it adds items' igrade/igrace/a/buy/id, monsters' max_hp/c, sets' and classes'
+// computed fields, the seasons' drops and respawns; drops, upgrades, compounds and monster_gold are locals of its
+// init_game)
+const DESIGN = ["projectiles", "animations", "achievements", "game_design", "games", "conditions", "sprites", "dimensions", "monsters", "maps", "npcs", "multipliers", "items", "classes", "levels", "upgrades", "drops", "skills", "events", "recipes", "titles", "tokens", "cosmetics", "precomputed_images"];
+const designs = new Map();
+function designOf(root) {
+	if (!designs.has(root)) {
+		const ctx = vm.createContext({});
+		for (const f of DESIGN) vm.runInContext(fs.readFileSync(path.join(root, "design", f + ".js"), "utf8"), ctx, { filename: f + ".js" });
+		vm.runInContext(fs.readFileSync(path.join(root, "docs/directory.js"), "utf8"), ctx, { filename: "directory.js" });
+		designs.set(root, ctx);
+	}
+	return designs.get(root);
+}
 /** Everything a client needs from the server, as plain data (also shipped to client threads). */
 function clientInfo(server) {
 	if (!server.__clientInfo) {
-		const G = { ...server.G };
-		// /data.js serves the design's maps; the running server has changed its own (roaming specials moved between
-		// maps, event monsters added), which a live client never sees
-		const root = server.__root;
+		const root = server.__root,
+			G = {};
 		if (root) {
-			const ctx = vm.createContext({});
-			G.maps = JSON.parse(JSON.stringify(vm.runInContext(fs.readFileSync(path.join(root, "design/maps.js"), "utf8") + "\n;maps", ctx)));
-		}
-		for (const k of BROWSER_G_FIELDS) if (G[k] === undefined) G[k] = server[k] !== undefined ? server[k] : k === "images" ? {} : undefined;
+			// get_browser_data(): the design's tables; the version, and the geometry from the server's map records
+			const d = designOf(root),
+				v = (k) => vm.runInContext(`typeof ${k} === "undefined" ? undefined : ${k}`, d);
+			for (const k of BROWSER_G_FIELDS) G[k] = k === "version" ? server.G.version : k === "geometry" ? server.G.geometry : k === "images" ? v("precomputed").images : v(k);
+		} else for (const k of BROWSER_G_FIELDS) G[k] = server.G[k] !== undefined ? server.G[k] : server[k] !== undefined ? server[k] : k === "images" ? {} : undefined;
 		server.__clientInfo = { gJson: JSON.stringify(G), path: (server.options && server.options.servers && server.options.servers.local && server.options.servers.local.path) || "/socket.io/", version: server.G.version };
 	}
 	return server.__clientInfo;

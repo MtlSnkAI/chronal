@@ -8,11 +8,50 @@ const Module = require("node:module");
 const { EventEmitter } = require("node:events");
 const { createMongoModule, Db, setOutputCloner } = require("./fake_mongo");
 const { realm } = require("./realm");
+const { mulberry32 } = require("./vclock");
+
+// node:crypto with its random sources drawn from the run's seed (cave_of_many_dreams, the tavern's games, generated
+// maps and the cave's boot id call randomInt / randomBytes): a stream of its own, so Math.random's sequences don't
+// move. Everything else (hashes, hmacs, ciphers) is the real module's.
+function seededCrypto(seed) {
+	const real = require("node:crypto"),
+		rng = mulberry32((Math.imul(seed, 104729) + 0x5eed) | 0),
+		u32 = () => Math.floor(rng() * 0x100000000),
+		unit = () => (u32() * 0x200000 + (u32() >>> 11)) / 0x20000000000000; // 53 bits in [0, 1)
+	const fill = (view, offset = 0, size) => {
+		const b = new Uint8Array(view.buffer, view.byteOffset, view.byteLength),
+			end = size == null ? b.length : Math.min(b.length, offset + size);
+		for (let i = offset; i < end; i++) b[i] = u32() & 0xff;
+		return view;
+	};
+	const later = (cb, ...a) => queueMicrotask(() => cb(...a));
+	const randomInt = (min, max, cb) => {
+		if (typeof max !== "number") (cb = max), (max = min), (min = 0);
+		if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) || max <= min) throw new RangeError(`randomInt: bad range [${min}, ${max})`);
+		const v = min + Math.floor((max - min <= 0x100000000 ? rng() : unit()) * (max - min));
+		return typeof cb === "function" ? void later(cb, null, v) : v;
+	};
+	const randomBytes = (n, cb) => {
+		const b = fill(Buffer.alloc(n));
+		return typeof cb === "function" ? void later(cb, null, b) : b;
+	};
+	const randomUUID = () => {
+		const b = fill(new Uint8Array(16));
+		(b[6] = (b[6] & 0x0f) | 0x40), (b[8] = (b[8] & 0x3f) | 0x80);
+		const h = Buffer.from(b).toString("hex");
+		return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+	};
+	const getRandomValues = (view) => fill(view);
+	const webcrypto = Object.create(real.webcrypto, { getRandomValues: { value: getRandomValues }, randomUUID: { value: randomUUID }, subtle: { value: real.webcrypto.subtle } });
+	// (as own properties: the real module has getters for some of them)
+	const own = { randomInt, randomBytes, randomFillSync: fill, randomUUID, getRandomValues, webcrypto };
+	return Object.create(real, Object.fromEntries(Object.entries(own).map(([k, value]) => [k, { value, enumerable: true }])));
+}
 
 function makeEnv({ clock, hub, root, db = new Db(), workerLatency = 2 }) {
 	const real = (p) => (fs.existsSync(p) ? fs.realpathSync(p) : p);
 	const roots = [root, path.join(root, "common"), path.join(root, "secretsandconfig")].map(real);
-	return { clock, hub, root, roots, db, mongo: createMongoModule(db), workerLatency, workerSeq: 0, contexts: [] };
+	return { clock, hub, root, roots, db, mongo: createMongoModule(db), workerLatency, workerSeq: 0, contexts: [], crypto: seededCrypto(clock.seed) };
 }
 
 function isLocal(env, file) {
@@ -118,6 +157,8 @@ function intercepts(env, worker, ctx) {
 		return new FakeWorker(env, file, opts);
 	};
 	return {
+		crypto: env.crypto,
+		"node:crypto": env.crypto,
 		"socket.io": env.hub.socketIoModule(realm(ctx).JSON),
 		mongodb: env.mongo,
 		"geoip-lite": { lookup: () => null }, // 5s to load; the sim only ever sees 127.0.0.1
@@ -136,7 +177,7 @@ function runNodeFile(env, file, { argv, worker } = {}) {
 	const ctx = vm.createContext(vm.constants.DONT_CONTEXTIFY);
 	Object.assign(ctx, {
 		console, Buffer, URL, URLSearchParams, TextEncoder, TextDecoder, AbortController, AbortSignal, queueMicrotask, atob, btoa,
-		crypto: globalThis.crypto,
+		crypto: env.crypto,
 		fetch: async () => { throw new Error("[sim] network disabled"); },
 		process: fakeProcess(argv || [process.execPath, file]),
 		__dirname: path.dirname(file),
@@ -191,6 +232,23 @@ async function startServer(env, { serverKey = "local", timeoutMs = 60000, season
 	};
 	const file = path.join(env.root, "node/server.js");
 	const ctx = runNodeFile(env, file, { argv: [process.execPath, file, serverKey] });
+	// its own /eval: realm_broadcast() reaches every realm through servers_eval() (L80, blessings, a first login), this
+	// one included; run here as the route runs it (the code in the server's scope, its data parsed), a ms later as a
+	// request comes back. Any other address stays unreachable (the callers log one line: the error has no stack).
+	const evalRoute = vm.runInContext(`(async function (code, data) { var output = ""; try { eval(code); output = await output; } catch (e) { console.log("\\n" + code); log_trace("chttp_eval", e); } return JSON.stringify(output); })`, ctx);
+	ctx.fetch = async (url, opts = {}) => {
+		const def = ctx.server_def,
+			u = new URL(String(url));
+		if (!def || u.host !== def.address || u.pathname !== def.api_path + "eval") {
+			const e = new Error(`[sim] network disabled: ${opts.method || "GET"} ${url}`);
+			e.stack = e.message;
+			throw e;
+		}
+		const body = new URLSearchParams(String(opts.body || ""));
+		await new Promise((done) => env.clock.at(env.clock.now + 1, done));
+		const text = await evalRoute(body.get("code"), JSON.parse(body.get("data") || "{}"));
+		return { ok: true, status: 200, text: async () => text, json: async () => JSON.parse(text) };
+	};
 	for (const s of seasons) ctx.events[s] = true;
 	if (seasons.includes("valentines")) ctx.events.pinkgoo = 60;
 	if (seasons.includes("holidayseason")) ctx.events.snowman = 60;
@@ -200,4 +258,4 @@ async function startServer(env, { serverKey = "local", timeoutMs = 60000, season
 	return ctx;
 }
 
-module.exports = { makeEnv, seedMaps, startServer, insertAfter };
+module.exports = { makeEnv, seedMaps, startServer, insertAfter, seededCrypto };

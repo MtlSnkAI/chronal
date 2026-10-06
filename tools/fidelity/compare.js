@@ -17,8 +17,10 @@ for (let i = 0; i < args.length; i++) {
 }
 const runs = path.resolve(opt.runs || path.join(config().live_dir, "fidelity"));
 // a run's record: its snapshot's (the run's name begins with --name)
-const sims = fs.readdirSync(runs).filter((f) => /^[^.]+--\d+\.json$/.test(f) && (!opt.name || new RegExp("^" + opt.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(-s\\d+)?--").test(f))).map((f) => {
-	const w = JSON.parse(fs.readFileSync(path.join(runs, f), "utf8")), p = (w.players || []).find((x) => x.code_status && x.code_status.format === "chronal-fidelity/1");
+const sims = fs.readdirSync(runs).filter((f) => /^[\w.-]+--\d+\.json$/.test(f) && (!opt.name || new RegExp("^" + opt.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(-s\\d+)?--").test(f))).map((f) => {
+	let w;
+	try { w = JSON.parse(fs.readFileSync(path.join(runs, f), "utf8")); } catch (e) { return null; } // (a run that just reserved its file)
+	const p = (w.players || []).find((x) => x.code_status && x.code_status.format === "chronal-fidelity/1");
 	return p && p.code_status.phase === "done" ? { R: p.code_status, seed: w.run && w.run.seed, id: w.id } : null;
 }).filter(Boolean);
 const lives = opt.files.map((f) => ({ R: JSON.parse(fs.readFileSync(f, "utf8")), file: path.basename(f) }));

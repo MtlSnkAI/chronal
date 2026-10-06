@@ -20,7 +20,9 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `code/<sha16>.json`, `code/<sha16>.js` | the CODE store (section 9) | once per content, shared by the dir's runs |
 
 - `<id>` is the tag with every run of characters other than letters, digits, `_`, `.` and `-` replaced by `_` (at
-  most 80), `--`, and the start time in ms: `/^[\w.-]+--\d+$/`. Only `*--<digits>.json` files are runs.
+  most 80), `--`, and the start time in ms: `/^[\w.-]+--\d+$/`. Only `*--<digits>.json` files are runs. The run
+  reserves its `<id>.json` with an exclusive create: when a running or removed run has that id (the same tag started in
+  the same ms), the digits go up by one until one is free, so they are the start ms plus the runs that took it before.
 - The dashboard's own files: `.dash.json` (card settings), `.launches.json` (launch registry), `.remove-when-done.json`;
   directories `removed/` (removed runs, with their grid, ctl, setup files and recordings; the CODE store stays), `logs/` (sim
   launch logs), `.launch/` (New sim's setup files of launches).
@@ -189,7 +191,7 @@ merchant: { name, trips: [ { t_out, t_back, met, served } ], per_fighter: { <fig
 | `buffs` | `{ lonewolf, mluck, xpm, goldm, luckm }`: shares of the measured time with Lone Wolf and with mluck, the multipliers now |
 | `alive_ms`, `combat_ms` | ms alive, ms in combat (a hit, miss or heal dealt or received within the last 3 s) |
 | `credits` | kill credits (the server's count; merchants in a party get them too) |
-| `casts` | `{ skill: n }`: successful uses |
+| `casts` | `{ skill: n }`: successful uses (a reuse cooldown that starts later, on reappearing from invis or on a pickpocket, fishing or mining success, is not another use) |
 | `dmg` | `done { raw, net }`; `by_skill { k: { raw, net, hits, crits, misses, casts } }`; `by_target { type: { raw, net, hits } }`; `taken { raw, net }`; `taken_by { cause: { raw, net, hits } }` (cause: monster type, player, `burn`, `dreturn`, `reflect`...; hits include fully absorbed ones); `taken_mp` (the mana shield's part); `avoided { miss, evade, avoid }`; `overkill` = done raw - net. Its own damage return counts as damage done (`dreturn`) |
 | `heal` | `done`, `by_skill` (with `casts`), `by_target`, `received`, `received_by { <healer's name> | <potion> | regen_hp | lifesteal: { raw, net, hits } }`, `overheal` = done raw - net |
 | `mana` | `spent`, `by_skill { skill: mp }`, `gained { pots, regen, steal, other }` (net) |
@@ -236,6 +238,8 @@ on, `t` measured s, `k` its kind, `who` the character:
 - `loot`: `item`, `level` (when it has one), `q`;
 - `upgrade`, `compound`: `item`, `from` and `to` (the levels tried), `ok`, `lost` (an upgrade's item gone);
 - `stat`: a stat scroll's: `item`, `stat`, `ok`;
+- `shiny`: an ingot's or a nugget's roll on an item with no scroll (its level stays): `item`, `level`, `offering`, `ok`
+  (shiny);
 - `give`: a handover: `to`, `item`, `level`, `q`; `gold`: `to`, `amount`.
 
 Only appended to; past 16 MB a last `{ t, k: "cap" }` and no more (`capped`). The events add up to the ledgers
