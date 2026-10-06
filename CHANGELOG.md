@@ -10,6 +10,31 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-06
+
+### Upgrading
+
+- Run `chronal install`: it moves the game to 98783128 (your upstream clone checked out there) and writes its game data
+  for the dashboard. Runs on it don't group with earlier runs of the same setup (the game is part of the setup key).
+- Snapshots: schema 2.9 (`hook_errors`, `items.stand_swapped_out` / `stand_swapped_in`).
+- `npm test` sets `CHRONAL_STRICT_HOOKS=1`: a test fails when one of chronal's hooks fails.
+
+### Added
+
+- Trade offers (the game from 98783128: a stand's listing paid with an item, `trade_offer` / `trade_swap`) are
+  recorded: a `trade` event with `via: "swap"` and what was paid (`for`), both sides' ledgers (`stand_swapped_out`,
+  `stand_swapped_in`), `live_check`'s item check; the dashboard's Items "Traded" tab shows them as "trade offer".
+
+### Changed
+
+- The game moves to 98783128 (`upstream.json`), the version live runs: of the 41 differences a pull found between
+  live's game data and 90052162, 38 are gone (3 cave entries are newer than the published game). Gameplay that changes
+  with it: rare accessory drops and rare variants, Cliff Kobolds (renamed Kobolds, faster), merchant stand trade
+  offers, monster combat ranges, the Gnomish Capacitor's mana restore chance capped at 20%, petrify (Stonegaze Ring),
+  the Deepvein Axe's crafting cost, encouragement rewards in loot events. Its game server is faster: a run the server
+  limits runs faster (the example: 77x -> 124x), one its characters' CODE limits as before (a rogue, a merchant and a
+  market account: 108x -> 107x).
+
 ### Fixed
 
 - New sim: a pull's warnings are short chips: its characters online in one ("online: MtlSnk, MtlSnkRan"), each other
@@ -31,22 +56,6 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 - The dashboard's game data (item tooltips) follows the installed game: its cache is named by the game's commit too
   (`cache/G-<version>-<game>.json`), and `chronal install` writes it. The game's version number alone (15555) stays
   the same across its commits, so another game kept the old data.
-
-### Added
-
-- Trade offers (the game from 98783128: a stand's listing paid with an item, `trade_offer` / `trade_swap`) are
-  recorded: a `trade` event with `via: "swap"` and what was paid (`for`), both sides' ledgers (`stand_swapped_out`,
-  `stand_swapped_in`), `live_check`'s item check; the dashboard's Items "Traded" tab shows them as "trade offer".
-
-### Changed
-
-- The game moves to 98783128 (`upstream.json`), the version live runs: of the 41 differences a pull found between
-  live's game data and 90052162, 38 are gone (3 cave entries are newer than the published game). Gameplay that changes
-  with it: rare accessory drops and rare variants, Cliff Kobolds (renamed Kobolds, faster), merchant stand trade
-  offers, monster combat ranges, the Gnomish Capacitor's mana restore chance capped at 20%, petrify (Stonegaze Ring),
-  the Deepvein Axe's crafting cost, encouragement rewards in loot events. Its game server is faster: a run the server
-  limits runs faster (the example: 77x -> 124x), one its characters' CODE limits as before (a rogue, a merchant and a
-  market account: 108x -> 107x).
 
 ## [0.8.0] - 2026-10-06
 
@@ -232,7 +241,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 The first release: Adventure Land's real game server and clients on a virtual clock, running your CODE unmodified and
 headless at 100x and more, with a dashboard, replays, and fidelity checks against live.
 
-[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.8.0...develop
+[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.9.0...develop
+[0.9.0]: https://github.com/MtlSnkAI/chronal/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/MtlSnkAI/chronal/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/MtlSnkAI/chronal/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/MtlSnkAI/chronal/compare/v0.6.0...v0.6.1
