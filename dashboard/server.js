@@ -868,7 +868,8 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 		// GET api/rec/<run id>/<name>/sheet?v=<virtual ms>: the character's sheet at that moment of its recording (the last
 		// "player" packet its client had): { at, level, xp, max_xp, hp, max_hp, mp, max_mp, gold, type, rip, gear,
 		// gear_stat, stats, s: its conditions, items: its inventory (as players[].inventory), free: its empty slots, log:
-		// the last 100 lines of its game log and chat (rec.js logAt) }; 404 before its first one
+		// the last 100 lines of its game log and chat (rec.js logAt) }; null before its first one (a character recorded
+		// from later on); 404 without a recording
 		if ((m = /^\/api\/rec\/((?:[\w-][\w.-]*\/)?[\w.-]+--\d+)\/([\w-]{1,40})\/sheet$/.exec(p)) && req.method === "GET") {
 			const q = url.searchParams.get("v"),
 				v = q ? Number(q) : NaN,
@@ -881,7 +882,7 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 			} catch (e) {
 				return json({ reason: e.code === "ENOENT" ? `no recording of ${m[2]} in ${m[1]}` : e.message }, e.code === "ENOENT" ? 404 : 500);
 			}
-			if (!at) return json({ reason: "nothing recorded yet at " + v }, 404);
+			if (!at) return json(null);
 			const [t, d] = at,
 				gear = {},
 				gear_stat = {};
