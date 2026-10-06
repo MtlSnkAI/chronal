@@ -187,7 +187,8 @@ Installs the game the sim runs, at the commits this chronal is tested with (`ups
 - copies the game into `runtime/app` (the repos stay untouched: the game rewrites files as it runs), runs
   `npm install` there when its `package.json` changed, and writes its settings (`runtime/secretsandconfig`: a local
   server, this install's own keys);
-- records what it installed in `runtime/installed.json`. `chronal run` and the dashboard warn when that isn't the
+- records what it installed in `runtime/installed.json`, and writes its game data for the dashboard
+  (`chronal g-data`). `chronal run` and the dashboard warn when that isn't the
   pin (after updating chronal to a release that moves the pin, or after `--latest`): run `chronal install` again.
 
 Options:
@@ -255,6 +256,7 @@ its class).
 
 ## chronal g-data
 
-Boots the game once and writes its `G` (the game data a browser gets) to `cache/G-<version>.json`, for the dashboard's
-item tooltips and research tools. Config `g_data` points at another one instead (e.g. the live game's, saved as a
-file).
+Boots the game once and writes its `G` (the game data a browser gets) to `cache/G-<version>-<game commit>.json`, for
+the dashboard's item tooltips and research tools; the installed game's is the one read (`chronal install` writes it).
+The game's version number alone stays the same across its commits. Config `g_data` points at another one instead
+(e.g. the live game's, saved as a file).

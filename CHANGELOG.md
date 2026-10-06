@@ -28,6 +28,9 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   ([#1](https://github.com/MtlSnkAI/chronal/issues/1)).
 - Angel's share of a chest's gold is measured on the game from 98783128 too: its `encouragement_loot` passes the
   chest's result where it passed goldm, and every chest under Angel's aura counted as unmatched.
+- The dashboard's game data (item tooltips) follows the installed game: its cache is named by the game's commit too
+  (`cache/G-<version>-<game>.json`), and `chronal install` writes it. The game's version number alone (15555) stays
+  the same across its commits, so another game kept the old data.
 
 ## [0.8.0] - 2026-10-06
 

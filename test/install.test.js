@@ -79,3 +79,20 @@ test("upstream.json: the three repos, each with its url and a full commit", () =
 	assert.deepEqual(Object.keys(P), ["game", "common", "config"]);
 	for (const r of Object.values(P)) assert.ok(/^https:\/\/github\.com\//.test(r.url) && /^[0-9a-f]{40}$/.test(r.commit) && r.dir, JSON.stringify(r));
 });
+
+test("gData: the installed game's cache/G-<version>-<game>.json, else the newest by version (then the latest written); a configured g_data first", () => {
+	const { gData } = require("../lib/config");
+	const d = path.join(dir, "cache");
+	fs.mkdirSync(d);
+	const put = (f, t) => (fs.writeFileSync(path.join(d, f), "{}"), fs.utimesSync(path.join(d, f), t, t));
+	put("G-15555.json", 1000);
+	put("G-15555-90052162.json", 2000);
+	put("G-15555-98783128.json", 3000);
+	put("G-15554-aaaaaaaa.json", 4000);
+	assert.equal(gData({ g_data: null }, { dir: d, game: "90052162" }), path.join(d, "G-15555-90052162.json"));
+	assert.equal(gData({ g_data: null }, { dir: d, game: "98783128" }), path.join(d, "G-15555-98783128.json"));
+	assert.equal(gData({ g_data: null }, { dir: d, game: "bbbbbbbb" }), path.join(d, "G-15555-98783128.json")); // (not cached: the newest)
+	assert.equal(gData({ g_data: null }, { dir: d, game: null }), path.join(d, "G-15555-98783128.json"));
+	assert.equal(gData({ g_data: "/x.json" }, { dir: d, game: "90052162" }), "/x.json");
+	assert.equal(gData({ g_data: null }, { dir: path.join(dir, "none"), game: null }), null);
+});
