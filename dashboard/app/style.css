@@ -46,6 +46,7 @@ button.go { background:var(--line); border-color:var(--line); color:#fff; }
 /* the colours' switch: light, dark, the system's */
 .seg.thm { margin-left:auto; flex:none; } .seg.thm button { display:inline-flex; align-items:center; min-height:0; padding:4px 7px; color:var(--ink2); } .seg.thm button[aria-pressed="true"] { color:var(--card); } .seg.thm svg { width:14px; height:14px; }
 .nav { display:grid; gap:2px; padding:0 8px 8px; border-bottom:1px solid var(--rule); }
+.gwarn { margin:8px; padding:6px 8px; border:1px solid var(--warn); border-radius:8px; color:var(--warn-ink); font-size:.9em; }
 .nav a { display:flex; align-items:center; gap:10px; padding:6px 10px; border-radius:8px; color:var(--ink); font-weight:var(--fw-b); text-decoration:none; }
 .nav a svg { flex:none; width:15px; height:15px; color:var(--ink2); }
 .nav a:hover { background:var(--hover); } .nav a[aria-current="page"] { background:var(--wash); color:var(--line); } .nav a[aria-current="page"] svg { color:var(--line); }

@@ -4,7 +4,7 @@
 import { h, render } from "./vendor/preact.js";
 import { useState, useEffect } from "./vendor/hooks.js";
 import htm from "./vendor/htm.js";
-import { start, useRedraw, useSignal, lastError } from "./store.js";
+import { S, start, useRedraw, useSignal, lastError } from "./store.js";
 import { save } from "./lib.js";
 import { icon, mon } from "./art.js";
 import { HoverTip, ItemTip } from "./tips.js";
@@ -86,6 +86,7 @@ function App() {
 		<aside class="side" aria-label="Navigation">
 			<div class="brand"><span id="logo">${icon("schedule_clock", null, 1) || mon("goo", 24)}</span><b>ChronAL</b><${Sum} /><${ThemeSwitch} /></div>
 			<nav class="nav">${NAV.map(([k, label, tip]) => html`<a href=${"#/" + k} aria-current=${sect === k ? "page" : null} data-tip=${tip}>${ICONS[k]}${label}</a>`)}</nav>
+			${S.cst && S.cst.game && S.cst.game.text ? html`<p class="gwarn" role="status" data-tip=${S.cst.game.text}>${"The game installed isn't the one this chronal is tested with (" + S.cst.game.pinned + "): run chronal install"}</p>` : null}
 			<${RunsSide} route=${route} />
 		</aside>
 		<main id="main">${page}</main>

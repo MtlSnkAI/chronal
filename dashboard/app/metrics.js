@@ -481,7 +481,7 @@ export function labelsOf(data) {
 		if (runs.length < 2) continue;
 		// the value most of them have (a tie: the oldest run's); undefined when they all have it
 		const most = (f) => { const c = new Map(); for (const w of runs) c.set(f(w), (c.get(f(w)) || 0) + 1); return c.size > 1 ? [...c].sort((a, b) => b[1] - a[1])[0][0] : undefined; };
-		const simOf = (w) => (w.versions && w.versions.sim) || "", msim = most(simOf), mc = most(codeOf), mw = most((w) => (w.run && w.run.warmup_ms) || 0), ma = most(wageOf), tok = (w, re) => out.get(w.id).toks.find((t) => re.test(t)) || "";
+		const simOf = (w) => ((w.versions && w.versions.sim) || "") + (w.versions && w.versions.game ? " game " + w.versions.game : ""), msim = most(simOf), mc = most(codeOf), mw = most((w) => (w.run && w.run.warmup_ms) || 0), ma = most(wageOf), tok = (w, re) => out.get(w.id).toks.find((t) => re.test(t)) || "";
 		const mt = TK.map((re) => [re, most((w) => tok(w, re))]).filter(([, v]) => v !== undefined);
 		const mg = [...new Set(runs.flatMap((w) => (w.roster || []).map((r) => r.name)))].map((n) => [n, most((w) => gearOf(w, n))]).filter(([, x]) => x !== undefined);
 		for (const w of runs) {
@@ -543,7 +543,7 @@ export function sweepOf(ss) {
 const CHG_SKIP = /^(run\.seed$|name$|strategy$|notes|characters\[[^\]]+\]\.note$)/;
 export function setsOf(s) {
 	const w = s.runs[0] || s.all[0], x = w && settingsOf(w);
-	return x && { ...Object.fromEntries(Object.entries(x).filter(([k]) => !CHG_SKIP.test(k))), sim: JSON.stringify((w.versions && w.versions.sim) || null), chronal: JSON.stringify((w.versions && w.versions.chronal) || null) };
+	return x && { ...Object.fromEntries(Object.entries(x).filter(([k]) => !CHG_SKIP.test(k))), sim: JSON.stringify((w.versions && w.versions.sim) || null), chronal: JSON.stringify((w.versions && w.versions.chronal) || null), game: JSON.stringify((w.versions && w.versions.game) || null) };
 }
 const slotAt = (x, who, sl) => { const b = "characters[" + who + "].state.slots." + sl + ".", n = jp(x[b + "name"]); return n ? { name: n, level: +jp(x[b + "level"]) || 0, stat: jp(x[b + "stat_type"]) || "", p: jp(x[b + "p"]) || "" } : null; };
 const atOf = (x, who) => { const b = "characters[" + who + "].at."; return [jp(x[b + "map"]), jp(x[b + "x"]), jp(x[b + "y"])].filter((v) => v != null).join(" "); };
@@ -574,7 +574,7 @@ export function chgGroup(c) {
 	if (c.kind === "slot") return "Gear";
 	if (c.kind === "code") return "CODE";
 	if (c.kind === "bank") return "Accounts";
-	if (/^(sim|chronal)$/.test(c.key)) return "Versions";
+	if (/^(sim|chronal|game)$/.test(c.key)) return "Versions";
 	if (/^code_names\./.test(c.key)) return "CODE";
 	if (/^(world|run|party)\./.test(c.key)) return "World and run";
 	if (/^accounts\./.test(c.key)) return "Accounts";
@@ -582,7 +582,7 @@ export function chgGroup(c) {
 }
 export const chgLow = (c) => c.kind === "set" && /^(sim|chronal|world\.start|code_names\..*|.*age_days|.*\.note|notes.*)$/.test(c.key);
 // a setting's name and value as they read (the setup's keys; the snapshot's when a run has no setup file)
-const KEYN = { "run.duration": "duration", "run.duration_ms": "duration", "run.warmup": "warm-up", "run.warmup_ms": "warm-up", "run.until": "until", "run.grid_ms": "grid", "world.age": "world age", "world.age_ms": "world age", "world.ping": "ping", "world.threads": "threads", "party.members": "party", "party.leader": "leader", "party.form": "party form", sim: "sim", chronal: "chronal" };
+const KEYN = { "run.duration": "duration", "run.duration_ms": "duration", "run.warmup": "warm-up", "run.warmup_ms": "warm-up", "run.until": "until", "run.grid_ms": "grid", "world.age": "world age", "world.age_ms": "world age", "world.ping": "ping", "world.threads": "threads", "party.members": "party", "party.leader": "leader", "party.form": "party form", sim: "sim", chronal: "chronal", game: "game" };
 export const keyName = (k) => KEYN[k] || k.replace(/^characters\[([^\]]+)\]\.state\.slots\.(\w+)\.(\w+)$/, (x, n, sl, f) => n + "'s " + sl + ({ name: "", level: " level", stat_type: " stat", p: " title" }[f] ?? " " + f)).replace(/^accounts\.([^.]+)\.age_days$/, "$1's account age").replace(/^characters\[([^\]]+)\]\.(state\.)?/, "$1 ").replace(/^roster\[([^\]]+)\]\./, "$1 ").replace(/_ms$/, "");
 export const valTxt = (k, v) => (v == null ? "none" : /_ms$/.test(k) && typeof v === "number" ? fmtSpan(v) : /age_days$/.test(k) ? +(+v).toFixed(1) + " days" : k === "sim" ? String(v).replace(/\+(\w{3})\w*$/, "+$1") : k === "chronal" ? String(v).replace(/\.(\w{3})\w*$/, ".$1") : Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : String(v));
 const itemTxt = (it) => (it ? it.name + (it.level ? " +" + it.level : "") + (it.stat ? " " + it.stat : "") + (it.p ? " " + it.p : "") : "none");

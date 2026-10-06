@@ -620,7 +620,8 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 		const ws = worlds();
 		// setup_defaults: a setup's run and world settings when it leaves them out (a run's setup file from before a
 		// setting existed lacks it: Compare reads it as the default, not as a change)
-		return { viewer: { up: viewer.up() }, sims: threads(ws), launches: [...launches].reverse(), setup_defaults: { run: SETUP.RUN_DEFAULTS, world: SETUP.WORLD_DEFAULTS } };
+		// game: the game installed against the one this chronal is tested with (lib/install.js gameCheck)
+		return { viewer: { up: viewer.up() }, sims: threads(ws), launches: [...launches].reverse(), setup_defaults: { run: SETUP.RUN_DEFAULTS, world: SETUP.WORLD_DEFAULTS }, game: require("../lib/install").gameCheck() };
 	}
 
 	// the metrics' settings (the headline, the columns) and the Data tab's panels for every page on this live dir
@@ -1053,6 +1054,8 @@ function cli(argv) {
 	for (const sig of ["SIGINT", "SIGTERM"]) process.once(sig, () => (d.close(), process.exit(0)));
 	http.createServer(d.handle).listen(port, host, () => {
 		console.log(`chronal dashboard on http://${host}:${port}/ (reading ${dir})`);
+		const game = require("../lib/install").gameCheck();
+		if (game.text) console.warn("warning: " + game.text);
 		console.log(`from another machine: ssh -N -L ${port}:localhost:${port} <user>@<this machine>, then open http://localhost:${port}/`);
 	});
 }

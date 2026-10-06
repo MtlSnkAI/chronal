@@ -30,6 +30,12 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   and `login` take `worker` (the script, kept through reloads and restarts) and `extra` (more `workerData`), and
   `sim/client_host.js` exports `makeWindow`, `run`, `exec` and `RUNNER_FILES`. The protocol: [How the sim
   works](docs/explanation/sim.md#a-hosts-own-client-thread). ([#2](https://github.com/MtlSnkAI/chronal/issues/2))
+- `chronal install` installs the game at the commits this chronal is tested with (`upstream.json`; the game at
+  90052162), not upstream's newest: a fresh install works with the release it comes with
+  ([#1](https://github.com/MtlSnkAI/chronal/issues/1)). `--latest` installs upstream's newest (untested), `--check`
+  shows how far upstream is ahead. `chronal run` and the dashboard warn when the game installed isn't the pin.
+  Snapshots record the game's commit (`versions.game`, schema 2.8), shown with the run's versions and in Compare.
+  ([cli](docs/reference/cli.md#chronal-install))
 
 ## [0.7.0] - 2026-10-06
 

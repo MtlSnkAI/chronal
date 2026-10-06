@@ -44,7 +44,7 @@ More: [How the sim works](docs/explanation/sim.md).
 git clone <this repo> chronal && cd chronal
 npm install
 npm link            # puts `chronal` on your PATH (or use: node chronal.js ...)
-chronal install     # downloads the game's code into upstream/ and prepares runtime/
+chronal install     # downloads the game's code into upstream/ (the version this chronal is tested with) and prepares runtime/
 ```
 
 ## Versions

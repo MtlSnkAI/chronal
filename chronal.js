@@ -26,8 +26,10 @@ Watch
                             replayed in the game's own page (run --record)
 
 Data
-  install [--update]        the game the sim runs: its repos in upstream/ (cloned when missing), copied into
-                            runtime/app; --update: git pull them first
+  install [--update | --latest | --check]
+                            the game the sim runs: its repos in upstream/ (cloned when missing) at the commits
+                            this chronal is tested with (upstream.json), copied into runtime/app; --update: fetch
+                            them first; --latest: upstream's newest (untested); --check: how far upstream is ahead
   pull ...                  pull the live account (states, bank, CODE) through the game's API; other players'
                             public pages (chronal pull --help)
   library ...               the CODE library: others' CODE, added, updated, scanned, trusted, fitted
@@ -50,14 +52,7 @@ const COMMANDS = {
 	example: () => process.stdout.write(require("./lib/example").example()),
 	new: () => require("./lib/compose").cli(args),
 	dash: () => require("./dashboard/server").cli(args),
-	install: () => {
-		try {
-			console.log("installed:", JSON.stringify(require("./lib/install").install(args)));
-		} catch (e) {
-			console.error("chronal install: " + e.message);
-			process.exit(1);
-		}
-	},
+	install: () => require("./lib/install").cli(args),
 	pull: () => require("./lib/pull").cli(args),
 	library: () => require("./lib/library").cli(args),
 	"code-sets": () => require("./lib/code_sets").cli(args),
