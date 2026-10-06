@@ -68,7 +68,7 @@ function fakeApp() {
 	put("main.js", `const fs = require("fs"), http = require("http"), mongo = require("mongodb");
 fs.writeFileSync("version.js", "2\\n");
 const srv = http.createServer((q, r) => {
-	if (q.url.startsWith("/character/")) return r.writeHead(200, { "content-type": "text/html" }), r.end('<html><head><title>g</title></head><body><a href="http://localhost:8090/x">x</a></body></html>');
+	if (q.url.startsWith("/character/")) return r.writeHead(200, { "content-type": "text/html" }), r.end('<html><head><title>g</title><script src="/js/game.js"></script><script>(function(){})(window,document,"script","https://www.google-analytics.com/analytics.js","ga"); ga("send", "pageview");</script><script async src="https://www.googletagmanager.com/gtag/js?id=G-1"></script></head><body><a href="http://localhost:8090/x">x</a></body></html>');
 	if (q.url === "/js/game.js") return r.writeHead(200, { "content-type": "application/javascript" }), r.end('var base = "http://localhost:8090";');
 	if (q.url === "/api/servers_and_characters") return r.writeHead(200, { "content-type": "application/json" }), r.end(JSON.stringify({ method: q.method, mongo: typeof mongo.MongoClient, address: srv.address().address }));
 	r.writeHead(404).end();
@@ -108,7 +108,7 @@ async function until(fn, ms, what) {
 	throw new Error("timed out waiting for " + what);
 }
 
-test("the viewer on the dashboard's port: api/viewer starts the backend (202, then 200); replay pages with the scripts in their head, the backend's address made the dashboard's; closed when idle", async () => {
+test("the viewer on the dashboard's port: api/viewer starts the backend (202, then 200); replay pages with the scripts in their head, the game's analytics left out, the backend's address made the dashboard's; closed when idle", async () => {
 	const dir = liveDir("mount"),
 		app = fakeApp(),
 		s = await serve({ dir, appDir: app, viewerIdleMs: 1500 });
@@ -125,6 +125,8 @@ test("the viewer on the dashboard's port: api/viewer starts the backend (202, th
 		r = await s.call("GET", r.headers.location);
 		const here = `http://127.0.0.1:${s.port}`;
 		assert.deepStrictEqual([r.code, /<head><script>[\s\S]*__timewarp[\s\S]*<\/script><title>/.test(r.text), r.text.includes(here + "/x"), r.text.includes("localhost:8090")], [200, true, true, false]);
+		// the game's analytics left out, its other scripts kept
+		assert.deepStrictEqual([/google-analytics|googletagmanager|pageview/.test(r.text), r.text.includes('<title>g</title><script src="/js/game.js"></script></head>')], [false, true]);
 		assert.strictEqual((await s.call("GET", `/character/Ran1/in/US/I/?chronal_replay=nope--1`)).code, 404);
 		// a script: the address made this one's, kept by the browser (an ETag)
 		r = await s.call("GET", "/js/game.js");
