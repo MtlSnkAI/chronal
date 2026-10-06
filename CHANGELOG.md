@@ -10,6 +10,19 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-06
+
+### Added
+
+- `chronal ps` lists the live dir's runs and whether their processes run; `chronal stop <id> | --tag T [--all] |
+  --all [--force]` stops them. A process is verified by its pid, start time and working directory before it gets a
+  signal. ([cli](docs/reference/cli.md))
+- `chronal run` prints its pid and stops at the next game minute on SIGINT or SIGTERM, also without live snapshots.
+  `chronal new --run` and the fidelity sim pass the signals on to their runs and start no more.
+- Folders in the live dir: runs one folder down show in the dashboard, `chronal ps` and `chronal stop` as
+  `<folder>/<id>`. The runs list gets a Folder filter; a removed run goes to its folder's own `removed/`.
+  ([dashboard](docs/reference/dashboard.md))
+
 ## [0.4.0] - 2026-10-06
 
 ### Added
@@ -98,7 +111,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 The first release: Adventure Land's real game server and clients on a virtual clock, running your CODE unmodified and
 headless at 100x and more, with a dashboard, replays, and fidelity checks against live.
 
-[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.4.0...develop
+[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.5.0...develop
+[0.5.0]: https://github.com/MtlSnkAI/chronal/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MtlSnkAI/chronal/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MtlSnkAI/chronal/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MtlSnkAI/chronal/compare/v0.1.1...v0.2.0
