@@ -10,6 +10,11 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+### Fixed
+
+- New sim: a pull's warnings are small chips on one line: its characters online in one ("online: MtlSnk, MtlSnkRan"),
+  each other warning by its first words, the whole text on hover. A whole sentence per chip filled several lines.
+
 ## [0.8.0] - 2026-10-06
 
 ### Upgrading
