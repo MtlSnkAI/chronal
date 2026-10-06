@@ -181,3 +181,15 @@ test("a failing hook of chronal's (its measuring code around a game function) is
 		await sim.close();
 	}
 });
+
+test("the fake socket.io server: to(ids) emits to those sockets only (a room per socket id, as emit_fanout sends), a named room reaches nobody; engine takes the game's per-tick flush hook (#1)", () => {
+	const { ServerIO } = require("../sim/fake_io");
+	const io = new ServerIO({}, "/socket.io/"),
+		got = [];
+	for (const id of ["a", "b", "c"]) io.sockets.set(id, { emit: (e, d) => got.push([id, e, d]) });
+	assert.equal(io.to(["a", "c"]).emit("x", 1), true);
+	io.to("b").emit("y", 2);
+	io.to("roulette").emit("bet", 3);
+	assert.deepEqual(got, [["a", "x", 1], ["c", "x", 1], ["b", "y", 2]]);
+	assert.doesNotThrow(() => io.engine.on("connection", () => {}));
+});

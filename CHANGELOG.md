@@ -22,6 +22,10 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   or a chest's gold under Angel's aura that doesn't match the server's formula, is printed once and listed in the
   snapshot (`hook_errors`, schema 2.9; `notes.chronal`); `tools/live_check.js` checks it. The tests (`npm test`, the
   weekly upstream check) fail on one, so a game change that breaks a hook shows up.
+- The sim's socket.io server has the game's newer calls: `engine` (the game defers its socket writes to the end of a
+  tick) and `to()` (it sends to lists of sockets, and a roulette bet to a room): every real sim failed on the game
+  from 98783128, and a roulette bet failed already on 90052162. Fix by @Thefonze74065
+  ([#1](https://github.com/MtlSnkAI/chronal/issues/1)).
 
 ## [0.8.0] - 2026-10-06
 
