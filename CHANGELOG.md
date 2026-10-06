@@ -15,6 +15,9 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 - Replays of runs where a character's page loaded again: a broken last line in its recording's index froze the replay
   at its first moment. The index now skips such lines, so these replays play (the sessions before the last one stay
   lost).
+- A recording keeps every session of a character: when its page loaded again (its CODE's `disconnect()`, or the
+  server's after a third death by burn in one session) or it was started again, the recording started over and only
+  the last session could be replayed. A replay now plays through each reload.
 
 ## [0.6.0] - 2026-10-06
 

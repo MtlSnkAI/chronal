@@ -461,14 +461,18 @@ class ThreadedSim extends Sim {
 		const index = this.workers.length;
 		const modes = this.live ? new MessageChannel() : null; // LIVE: the thread's time per CODE mode (live.js)
 		this.gate.init(index + 1, this.clock.now);
+		// its recording: on after its last session's (a page loaded again, a character started again); while that thread
+		// still runs (to the end of the game minute) the new one holds what it records (runChunk: rec_open)
+		const before = this.workers.filter((x) => x.name === name),
+			rec = this.recDir ? { dir: this.recDir, name, append: before.length > 0, wait: before.some((x) => !x.stopped) } : null;
 		const thread = new Worker(path.join(__dirname, "client_worker.js"), {
-			workerData: { storage: this.storage[account] || {}, rec: this.recDir ? { dir: this.recDir, name } : null, root: this.env.root, start: this.clock.now, seed: this.seed * 1009 + index + 1, info: clientInfo(this.server), latencyRange: this.latencyRange, W: this.W, fixture: fx, code, fps, files, owned, byPage: !!byPage, ctrl, any: this.any.buffer, port: port2, data: data.port2, shared: this.shared, slot: index + 1, spin: this.spin, modes: modes && modes.port2 },
+			workerData: { storage: this.storage[account] || {}, rec, root: this.env.root, start: this.clock.now, seed: this.seed * 1009 + index + 1, info: clientInfo(this.server), latencyRange: this.latencyRange, W: this.W, fixture: fx, code, fps, files, owned, byPage: !!byPage, ctrl, any: this.any.buffer, port: port2, data: data.port2, shared: this.shared, slot: index + 1, spin: this.spin, modes: modes && modes.port2 },
 			transferList: [port2, data.port2, ...(modes ? [modes.port2] : [])],
 		});
 		const i32 = new Int32Array(ctrl),
 			f64 = new Float64Array(ctrl);
 		// done: replies expected so far (the thread replies once when it's ready)
-		const w = { index, name, type, account, fx, thread, port: port1, data: data.port1, modes: modes && modes.port1, ctrl: i32, done: 1, peer: new RemotePeer(this.hub, index), parent: byPage, children: new Set(), dead: false };
+		const w = { index, name, type, account, fx, thread, port: port1, data: data.port1, modes: modes && modes.port1, ctrl: i32, done: 1, peer: new RemotePeer(this.hub, index), parent: byPage, children: new Set(), dead: false, recWait: !!(rec && rec.wait) };
 		w.peer.w = w;
 		w.peer.ip = ip; // (its account's address: fake_io.js ServerSocket)
 		w.decl = { fx, name, type, account, fps, codeOf, owned, ip };
@@ -680,6 +684,14 @@ class ThreadedSim extends Sim {
 				}
 			(w.stopped = true), w.cmd({ t: "stop" }), w.wait(), w.thread.terminate();
 		}
+		// a next session's recording, once its last session's thread has closed the files
+		for (const w of ws)
+			if (w.recWait && !w.stopped && !ws.some((x) => x !== w && x.name === w.name && !x.stopped)) {
+				w.recWait = false;
+				w.cmd({ t: "rec_open" });
+				const r = w.wait();
+				if (r.err) console.warn(`[sim] ${w.name}: its recording's next session: ${r.err}`); // (a thread that records nothing)
+			}
 	}
 	/** Busy ms per thread since the start: { server, <name>: ms } (compare with the wall clock: the busiest thread is the limit). */
 	busy() {

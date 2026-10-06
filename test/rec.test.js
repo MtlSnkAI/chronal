@@ -121,3 +121,70 @@ test("readIndex: a line that isn't four numbers is left out (an earlier run's la
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
 });
+
+test("Recorder, a character's next session: append goes on after what is there (offsets, no second header) from the state the last one ended in; wait holds the records until open(); a start clears the chests", () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rec-next-"));
+	try {
+		const rd = path.join(dir, "run--1.rec"),
+			first = new Recorder(rd, "Ran1", { memberMs: 1000 });
+		first.add(100, "a", "s1");
+		first.add(120, "p", p("start", { map: "main", in: "main", x: 0, y: 0, entities: { type: "all", players: [], monsters: [{ id: "7", type: "goo" }] } }));
+		first.add(500, "p", p("drop", { id: "c1", x: 1, y: 2 }));
+		first.add(900, "p", p("player", { x: 5 }));
+		// the next session's thread starts before the last one's has closed its files: it holds what comes in
+		const next = new Recorder(rd, "Ran1", { memberMs: 1000, append: true, wait: true });
+		next.add(3500, "a", "s2");
+		next.add(3600, "p", p("start", { map: "halloween", in: "halloween", x: 9, y: 9, entities: { type: "all", players: [], monsters: [] } }));
+		first.add(950, "d", "s1");
+		first.close();
+		next.open();
+		next.add(4700, "p", p("player", { x: 9 }));
+		next.close();
+		const head = fs.readFileSync(path.join(rd, "Ran1.rec.idx"), "utf8").split("\n").filter((l) => l.startsWith("{"));
+		assert.strictEqual(head.length, 1);
+		const { members } = readIndex(path.join(rd, "Ran1.rec.idx")),
+			gz = fs.readFileSync(path.join(rd, "Ran1.rec.gz"));
+		assert.deepStrictEqual(members.map((m) => [m.first, m.last]), [[100, 950], [3500, 3600], [4700, 4700]]);
+		assert.deepStrictEqual(members.map((m) => m.off), [0, members[0].len, members[0].len + members[1].len]);
+		assert.strictEqual(members.reduce((a, m) => a + m.len, 0), gz.length);
+		const S = (m) => JSON.parse(zlib.gunzipSync(gz.subarray(m.off, m.off + m.len)).toString("utf8").split("\n")[0].split("\t")[2]);
+		// the next session's first member starts from where the last one ended: its map, monsters, chest and player
+		const s1 = S(members[1]);
+		assert.deepStrictEqual([s1.map.name, Object.keys(s1.ents.monsters), Object.keys(s1.chests), s1.player[0]], ["main", ["7"], ["c1"], 900]);
+		// its start: the new page's map, no entities, no chests (the player packet is the last one's until a new one)
+		const s2 = S(members[2]);
+		assert.deepStrictEqual([s2.map.name, Object.keys(s2.ents.monsters), s2.chests], ["halloween", [], {}]);
+		assert.deepStrictEqual(playerAt(rd, "Ran1", 4800), [4700, { x: 9 }]);
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("a recorded run: a character whose page loads again (its CODE's disconnect() every 60 s) has every session in one recording, in time order", { timeout: 180000 }, (t) => {
+	const { config } = require("../lib/config");
+	if (!fs.existsSync(path.join(config().al_root, "design"))) return t.skip(`no game at ${config().al_root}`);
+	const { execFileSync } = require("node:child_process");
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rec-run-"));
+	try {
+		fs.writeFileSync(path.join(dir, "dc.js"), "setTimeout(() => disconnect(), 60000);\n");
+		fs.writeFileSync(path.join(dir, "setup.json"), JSON.stringify({ format: "chronal-setup/1", name: "recdc", run: { seed: 3 }, world: { threads: true }, characters: [{ name: "Rec1", class: "ranger", code: { file: "dc.js" } }] }));
+		const live = path.join(dir, "live");
+		execFileSync(process.execPath, [path.join(__dirname, "..", "chronal.js"), "run", path.join(dir, "setup.json"), "--duration", "4m", "--record", "--live", live, "--no-export"], { stdio: "pipe" });
+		const id = fs.readdirSync(live).find((f) => /^recdc--\d+\.json$/.test(f)).slice(0, -5),
+			snap = JSON.parse(fs.readFileSync(path.join(live, id + ".json"), "utf8")),
+			sessions = snap.players.find((x) => x.name === "Rec1").sessions,
+			{ members } = readIndex(path.join(live, id + ".rec", "Rec1.rec.idx")),
+			gz = fs.readFileSync(path.join(live, id + ".rec", "Rec1.rec.gz"));
+		assert.ok(sessions.length >= 3, JSON.stringify(sessions));
+		assert.strictEqual(members.reduce((a, m) => a + m.len, 0), gz.length);
+		for (let i = 1; i < members.length; i++) assert.ok(members[i].first > members[i - 1].first, `member ${i} out of order`);
+		// from the start of the run to its end, a connect per session
+		const t0 = members[0].first, span = (members[members.length - 1].last - t0) / 1000;
+		assert.ok(span > 235, `the recording spans ${span} s`);
+		let connects = 0;
+		for (const m of members) for (const l of zlib.gunzipSync(gz.subarray(m.off, m.off + m.len)).toString("utf8").split("\n")) if (l.split("\t")[1] === "a") connects++;
+		assert.strictEqual(connects, sessions.length);
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});

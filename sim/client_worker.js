@@ -14,8 +14,9 @@ process.on("unhandledRejection", () => {}); // browsers only log these
 for (const [k, fd] of [["log", 1], ["info", 1], ["debug", 1], ["warn", 2], ["error", 2]]) console[k] = (...a) => void fs.writeSync(fd, format(...a) + "\n");
 const [lo, hi] = w.latencyRange;
 const clock = new VirtualClock({ start: w.start, seed: w.seed });
-// w.rec: a replay recording of this character (rec.js), { dir, name }
-const recorder = w.rec ? new (require("../lib/rec").Recorder)(w.rec.dir, w.rec.name) : null;
+// w.rec: a replay recording of this character (rec.js), { dir, name, append, wait } (its next session; its last one's
+// thread still open: the main thread says when to write, "rec_open")
+const recorder = w.rec ? new (require("../lib/rec").Recorder)(w.rec.dir, w.rec.name, { append: w.rec.append, wait: w.rec.wait }) : null;
 const hub = new RemoteHub(clock, { latency: (rng) => lo + rng() * (hi - lo), recorder });
 // its page's storage: its account's (sim.js writeStorage)
 const env = { clock, hub, root: w.root, localStorage: putStorage(makeStorage(), w.storage) };
@@ -183,6 +184,7 @@ function serve() {
 			const m = receive();
 			if (m.t === "q") reply({ value: state.query(m.expr) });
 			else if (m.t === "prof") reply({ value: profiler(m.on) });
+			else if (m.t === "rec_open") recorder && recorder.held && recorder.open(), reply({});
 			else if (m.t === "stop") return recorder && recorder.close(), reply({}), process.exit(0);
 		}
 	} catch (e) {

@@ -38,7 +38,14 @@ sent. The dashboard shows it on the run's page (Replay), and its charts seek it.
   - the last `player` packet and move, as `[ms, raw]`.
   A seek reads one member.
 - **The index:** the `.idx` is a JSON header line `{ format, name, member_ms }`, then a line per member:
-  `first ms, last ms, byte offset, bytes`. A run still recording has what is written so far.
+  `first ms, last ms, byte offset, bytes`. A run still recording has what is written so far. A line that isn't four
+  numbers is skipped.
+- **Sessions:** a character in game again goes on in the same recording: its page loaded again after a disconnect (its
+  CODE's `disconnect()`, or the server's, e.g. after a third death by burn or a trap in one session), or it was
+  started again with `start_character`. The new page's records start with `a` and the server's `welcome` and `start`;
+  the S line of its first member is the state the last session ended in, and `start` clears the map, entities and
+  chests. The new session's thread holds what it records until the last one's has closed the files (at the end of the
+  game minute), so the members stay in time order.
 - **Times** are the world's virtual clock, the same as the grid's `v`. A chart's `t` (measured s since the base) is
   `v - (row.v - row.t * 1000)` for any grid row.
 - **Record order:** records are in arrival order, and packets arrive with future delivery times, so a member is a few
