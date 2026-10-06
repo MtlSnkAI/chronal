@@ -136,8 +136,9 @@ sent. The dashboard shows it on the run's page (Replay), and its charts seek it.
   before v; the last 8 members read are kept) gives the level, XP, HP, MP, gold, gear, stats (live.js `STATS`),
   conditions (`s`, with the time left), the inventory (`items`), the empty slots (`esize`) and the last 100 game log
   and chat lines up to v (rec.js `logAt()`: the `game_log`, `server_message` and `chat_log` packets' messages, from as
-  many members back as it takes). The page fetches it again once the replay's time moved a game second or more,
-  at most twice a real second.
+  many members back as it takes); `null` before the character's first player packet (a character in game from later
+  on), 404 without a recording. The page fetches it again once the replay's time moved a game second or more, at
+  most twice a real second.
 - **Seeking from the charts:** a click on a chart or buff lane (`.gsvg`, `svg.lt`, `.trk svg`) of that run sends
   `seek` with `v = base + t * 1000`. A character's lane (buffs, deaths: `.blane[data-who]`) also switches the replay to
   that character, at the moment clicked; a click on the lane's name only switches. The base comes from the run's grid, loaded for its charts. The frame's `time`

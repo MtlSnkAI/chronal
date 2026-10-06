@@ -20,6 +20,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   the last session could be replayed. A replay now plays through each reload.
 - A replay's console no longer fills with "Weird resolve_deferred issue" errors: the recorded server answers to the
   recorded CODE's calls are quiet in the replay page.
+- The dashboard's replay no longer logs a 404 error in the browser's console for each character not in game yet at the
+  replay's moment (its Characters sheet): the sheet is empty then.
 
 ## [0.6.0] - 2026-10-06
 

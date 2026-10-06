@@ -785,7 +785,7 @@ test("config: the live dir and the game from lib/config.js when not given (CHRON
 test.after(() => fs.rmSync(TMP, { recursive: true, force: true }));
 
 
-test("api/rec sheet: a recorded character's sheet at a moment (gear, stats, conditions from its last player packet); 404 before one or without a recording; 400 without v", async () => {
+test("api/rec sheet: a recorded character's sheet at a moment (gear, stats, conditions from its last player packet); null before one, 404 without a recording; 400 without v", async () => {
 	const dir = mkdir("recsheet"),
 		sim = checkout();
 	setupRun(dir, "bench--1", sideFile({ name: "bench" }), simSetupRun(sim));
@@ -800,7 +800,8 @@ test("api/rec sheet: a recorded character's sheet at a moment (gear, stats, cond
 		let x = await s.get("/api/rec/bench--1/Ran1/sheet?v=2500");
 		assert.deepStrictEqual([x.code, x.body.at, x.body.type, x.body.gear, x.body.gear_stat, x.body.stats, x.body.s], [200, 2000, "ranger", { mainhand: "bow+7" }, { mainhand: "dex" }, { attack: 488, frequency: 0.85 }, { mluck: { ms: 900 } }]);
 		assert.deepStrictEqual([x.body.items, x.body.free, x.body.log], [[{ name: "hpot0", q: 5 }, null], 41, [[1500, "log", "You killed a Goo"]]]);
-		assert.strictEqual((await s.get("/api/rec/bench--1/Ran1/sheet?v=1500")).code, 404);
+		x = await s.get("/api/rec/bench--1/Ran1/sheet?v=1500"); // (a character recorded from later on: nothing yet, not an error)
+		assert.deepStrictEqual([x.code, x.body], [200, null]);
 		assert.strictEqual((await s.get("/api/rec/bench--1/Pri1/sheet?v=2500")).code, 404);
 		assert.strictEqual((await s.get("/api/rec/bench--1/Ran1/sheet")).code, 400);
 	} finally {
