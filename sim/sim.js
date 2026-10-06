@@ -441,19 +441,21 @@ class ThreadedSim extends Sim {
 		this.hub.onRequest = (peer, data) => this.requests.push({ w: peer.w, data });
 		this.onLeave = null; // (client, reason): a character is about to leave (its thread still answers queries)
 	}
-	addCharacter({ name, type, over, code, fps = 60, account, user, files, owned, codeOf, fx: made, ip }) {
+	addCharacter({ name, type, over, code, fps = 60, account, user, files, owned, codeOf, fx: made, ip, worker, extra }) {
 		const fx = made || this.createCharacter({ name, type, over, account, user });
-		return this.login(fx, { name, type, account, code, fps, files, owned, codeOf, ip });
+		return this.login(fx, { name, type, account, code, fps, files, owned, codeOf, ip, worker, extra });
 	}
 	/** Create a character (as addCharacter) that stays out of the game until CODE starts it (start_character).
 	 * codeOf(slot) -> { code, files } for the slot start_character names ("": its own entry), or null: none such. */
-	declare({ name, type, over, account, user, fps = 60, codeOf, owned, ip }) {
+	declare({ name, type, over, account, user, fps = 60, codeOf, owned, ip, worker = null, extra = null }) {
 		const fx = this.createCharacter({ name, type, over, account, user });
-		this.offline.set(name, { fx, name, type, account, fps, codeOf, owned, ip });
+		this.offline.set(name, { fx, name, type, account, fps, codeOf, owned, ip, worker, extra });
 	}
 	/** Log a created character in: its client thread from now (a window boundary while running). codeOf: as declare's,
-	 * for a start_character after it left (none: it can't be started again) */
-	login(fx, { name, type, account, code, fps = 60, files, owned, byPage = null, codeOf = null, ip = null }) {
+	 * for a start_character after it left (none: it can't be started again). worker: a host's own client thread script
+	 * instead of client_worker.js (the same protocol: docs/explanation/sim.md), kept for the character's reloads and
+	 * restarts; extra: more workerData for it (the sim's own fields win) */
+	login(fx, { name, type, account, code, fps = 60, files, owned, byPage = null, codeOf = null, ip = null, worker = null, extra = null }) {
 		const { port1, port2 } = new MessageChannel(),
 			data = new MessageChannel();
 		// Shared control block: i32[0] go, i32[1] done, i32[2] kind (0 run to f64[2], 2 command posted), f64[3] busy ms.
@@ -465,8 +467,8 @@ class ThreadedSim extends Sim {
 		// still runs (to the end of the game minute) the new one holds what it records (runChunk: rec_open)
 		const before = this.workers.filter((x) => x.name === name),
 			rec = this.recDir ? { dir: this.recDir, name, append: before.length > 0, wait: before.some((x) => !x.stopped) } : null;
-		const thread = new Worker(path.join(__dirname, "client_worker.js"), {
-			workerData: { storage: this.storage[account] || {}, rec, root: this.env.root, start: this.clock.now, seed: this.seed * 1009 + index + 1, info: clientInfo(this.server), latencyRange: this.latencyRange, W: this.W, fixture: fx, code, fps, files, owned, byPage: !!byPage, ctrl, any: this.any.buffer, port: port2, data: data.port2, shared: this.shared, slot: index + 1, spin: this.spin, modes: modes && modes.port2 },
+		const thread = new Worker(worker || path.join(__dirname, "client_worker.js"), {
+			workerData: { ...extra, storage: this.storage[account] || {}, rec, root: this.env.root, start: this.clock.now, seed: this.seed * 1009 + index + 1, info: clientInfo(this.server), latencyRange: this.latencyRange, W: this.W, fixture: fx, code, fps, files, owned, byPage: !!byPage, ctrl, any: this.any.buffer, port: port2, data: data.port2, shared: this.shared, slot: index + 1, spin: this.spin, modes: modes && modes.port2 },
 			transferList: [port2, data.port2, ...(modes ? [modes.port2] : [])],
 		});
 		const i32 = new Int32Array(ctrl),
@@ -475,7 +477,7 @@ class ThreadedSim extends Sim {
 		const w = { index, name, type, account, fx, thread, port: port1, data: data.port1, modes: modes && modes.port1, ctrl: i32, done: 1, peer: new RemotePeer(this.hub, index), parent: byPage, children: new Set(), dead: false, recWait: !!(rec && rec.wait) };
 		w.peer.w = w;
 		w.peer.ip = ip; // (its account's address: fake_io.js ServerSocket)
-		w.decl = { fx, name, type, account, fps, codeOf, owned, ip };
+		w.decl = { fx, name, type, account, fps, codeOf, owned, ip, worker, extra };
 		Object.assign(w, { code, files, fps, owned });
 		w.peer.onClose = (peer) => this.requests.push({ w, data: { op: "closed" } });
 		const go = (kind) => (++w.done, Atomics.store(i32, 2, kind), Atomics.add(i32, 0, 1), Atomics.notify(i32, 0));
@@ -551,7 +553,7 @@ class ThreadedSim extends Sim {
 				continue;
 			}
 			this.offline.delete(w.name);
-			this.login(w.fx, { name: w.name, type: w.type, account: w.account, code: w.code, fps: w.fps, files: w.files, owned: w.owned, byPage: w.parent, codeOf: w.decl.codeOf, ip: w.decl.ip });
+			this.login(w.fx, { name: w.name, type: w.type, account: w.account, code: w.code, fps: w.fps, files: w.files, owned: w.owned, byPage: w.parent, codeOf: w.decl.codeOf, ip: w.decl.ip, worker: w.decl.worker, extra: w.decl.extra });
 		}
 	}
 	named(name) {
@@ -581,7 +583,7 @@ class ThreadedSim extends Sim {
 		}
 		this.offline.delete(name);
 		w.children.add(name);
-		this.login(d.fx, { name, type: d.type, account: d.account, code: got.code, fps: d.fps, files: got.files, owned: d.owned, byPage: w.name, codeOf: d.codeOf, ip: d.ip });
+		this.login(d.fx, { name, type: d.type, account: d.account, code: got.code, fps: d.fps, files: got.files, owned: d.owned, byPage: w.name, codeOf: d.codeOf, ip: d.ip, worker: d.worker, extra: d.extra });
 	}
 	/** A character leaves: its page (and the pages it started) close as a closed tab; the thread ends with this game minute.
 	 * reload: its page loads again (the server disconnected it): its page above keeps its iframe */

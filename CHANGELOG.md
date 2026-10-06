@@ -24,6 +24,13 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   characters with the baseline shows its own label and "other setup: N differences". The charts' legends name each
   series by its name only, the full label on hover. ([dashboard](docs/reference/dashboard.md))
 
+### Added
+
+- A program running chronal's sim itself can start a character's thread from its own script: `addCharacter`, `declare`
+  and `login` take `worker` (the script, kept through reloads and restarts) and `extra` (more `workerData`), and
+  `sim/client_host.js` exports `makeWindow`, `run`, `exec` and `RUNNER_FILES`. The protocol: [How the sim
+  works](docs/explanation/sim.md#a-hosts-own-client-thread). ([#2](https://github.com/MtlSnkAI/chronal/issues/2))
+
 ## [0.7.0] - 2026-10-06
 
 ### Added

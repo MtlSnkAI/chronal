@@ -125,3 +125,27 @@ for (const threads of [false, true])
 			await sim.close();
 		}
 	});
+
+test("a host's own client thread script (login worker, extra): it runs for the character, again when its page loads again; extra reaches it, the sim's own workerData fields win", { skip, timeout: 180000 }, async () => {
+	const dir = tmp(),
+		mark = path.join(dir, "marks.txt"),
+		worker = path.join(dir, "host-worker.js");
+	// a host's script: notes what it got, then speaks the protocol by running chronal's own thread
+	fs.writeFileSync(worker, `const { workerData: w } = require("node:worker_threads");
+require("node:fs").appendFileSync(w.mark, JSON.stringify({ name: w.fixture.name, root: w.root === ${JSON.stringify(ROOT)}, host: w.host }) + "\\n");
+require(${JSON.stringify(path.join(__dirname, "..", "sim", "client_worker.js"))});
+`);
+	const sim = await createSim({ root: ROOT, seed: 1, threads: true, live: false });
+	try {
+		const c = sim.addCharacter({ name: "Host1", type: "ranger", code: "setTimeout(() => disconnect(), 60000);", fps: 10, worker, extra: { mark, host: "mine", root: "not the sim's" } });
+		await sim.until(async () => sim.halted || (await c.query("!!(character && code_active)")), 60000);
+		await sim.run(90000);
+		const marks = fs.readFileSync(mark, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+		assert.deepEqual(marks, [{ name: "Host1", root: true, host: "mine" }, { name: "Host1", root: true, host: "mine" }]);
+		const now = sim.clients.findLast((x) => x.name === "Host1" && x.online !== false);
+		assert.ok(now && (await now.query("!!character")), "in game again after its reload");
+		assert.equal(sim.failed, null);
+	} finally {
+		await sim.close();
+	}
+});
