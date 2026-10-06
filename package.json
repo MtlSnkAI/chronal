@@ -1,6 +1,6 @@
 {
   "name": "chronal",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Adventure Land on a virtual clock: your CODE, unmodified, headless at 100x and more, with a dashboard and replays",
   "private": true,
   "license": "MIT",
