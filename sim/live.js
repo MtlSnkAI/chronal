@@ -63,7 +63,7 @@ const COMBAT_MS = 3000, TRIPS = 50;
 const BANK_PACK = 42; // slots in a bank pack
 const ROLE = { merchant: "merchant", priest: "healer", warrior: "tank", paladin: "tank" };
 // requests whose add_item() is counted elsewhere (buy/craft: the response, send: the history) or only moves an item
-const MOVED = new Set(["buy", "send", "craft", "exchange", "unequip", "equip", "bank", "swap", "split", "trade_buy", "trade_sell"]);
+const MOVED = new Set(["buy", "send", "craft", "exchange", "unequip", "equip", "bank", "swap", "split", "trade_buy", "trade_sell", "trade_swap"]);
 // conditions: intervals less than GAP_MS apart are one; the timeline has every key, TL_KEY_CAP closed rows per key and
 // TL_CAP per character
 const GAP_MS = 1000, TL_CAP = 200, TL_KEY_CAP = 40;
@@ -245,7 +245,7 @@ function metrics(p, census) {
 		dmg: { done: amount(), by_skill: {}, by_target: {}, taken: amount(), taken_by: {}, taken_mp: 0, avoided: { miss: 0, evade: 0, avoid: 0 } },
 		heal: { done: amount(), by_skill: {}, by_target: {}, received: amount(), received_by: {} },
 		mana: { spent: 0, by_skill: {}, gained: { pots: 0, regen: 0, steal: 0, other: 0 } },
-		items: { looted: {}, consumed: {}, bought: {}, sold: {}, stand_bought: {}, stand_sold: {}, sent: {}, received: {}, upgraded: {}, compounded: {}, exchanged: {}, crafted: {}, mluck_dupes: {}, from_exchange: {}, other: {} },
+		items: { looted: {}, consumed: {}, bought: {}, sold: {}, stand_bought: {}, stand_sold: {}, stand_swapped_out: {}, stand_swapped_in: {}, sent: {}, received: {}, upgraded: {}, compounded: {}, exchanged: {}, crafted: {}, mluck_dupes: {}, from_exchange: {}, other: {} },
 		gold_flow: { chest: 0, egold: 0, enc: 0, sold: 0, stand: 0, received: 0, other: 0, bought: 0, traded: 0, craft: 0, sent: 0, other_out: 0, banked: 0 },
 		chests: { opened: 0, dry: 0, stale: 0, gone: 0 },
 		casts: {}, credits: 0, xp_award: 0, xp_lost: 0, party_xp: 0, loot_items: 0, lastc: -Infinity,
@@ -790,12 +790,14 @@ class Live {
 			});
 		// a merchant's stand sale (trade_buy) or a buy order filled (trade_sell): the server records it on both sides
 		// (add_to_trade_history, the seller's "sell" then the buyer's "buy"), the price before the seller's tax
+		// (a stand's trade offer, trade_swap, from the game at 98783128: both sides' "swap", with the item received)
 		hook("add_to_trade_history", (orig) =>
-			function (player, event, name, item, price) {
+			function (player, event, name, item, price, received) {
 				const r = orig.apply(this, arguments);
 				try {
-					const q = live.req;
-					if (q && (q.method === "trade_buy" || q.method === "trade_sell") && player && item) live.traded(player, event, name, item, price, q.method === "trade_sell" ? "wish" : "stand");
+					const q = live.req,
+						via = q && { trade_buy: "stand", trade_sell: "wish", trade_swap: "swap" }[q.method];
+					if (via && player && item) live.traded(player, event, name, item, price, via, received);
 				} catch (e) {
 					live.hookErr("add_to_trade_history", e);
 				}
@@ -837,10 +839,25 @@ class Live {
 		this.G = G;
 	}
 	// a trade's side (seller "sell", buyer "buy"): the items' ledgers of ours, an items' event per trade (from its sale)
-	traded(player, event, other, item, price, via) {
+	traded(player, event, other, item, price, via, received) {
 		const q = item.q || 1,
 			m = this.mx[player.name],
 			om = this.mx[other];
+		if (event === "swap") {
+			// a trade offer taken: player gave item for the stand's received; both sides call, the taker's is kept (the
+			// request's own character). The stand's owner: stand_swapped_out (what left its stand, for what); the taker:
+			// stand_swapped_in
+			if (!received || !this.req || player !== this.req.p) return;
+			const rq = received.q || 1,
+				pay = { item: item.name, ...(item.level ? { level: item.level } : {}), ...(item.stat_type ? { stat_type: item.stat_type } : {}), q };
+			for (const [mm, key] of [[om, "stand_swapped_out"], [m, "stand_swapped_in"]]) {
+				if (!mm) continue;
+				const e = mm.items[key][received.name] || (mm.items[key][received.name] = { q: 0, for: {} });
+				(e.q += rq), (e.for[item.name] = (e.for[item.name] || 0) + q);
+			}
+			if (m || om) this.itemEvent({ k: "trade", who: other, to: player.name, item: received.name, ...(received.level ? { level: received.level } : {}), ...(received.stat_type ? { stat_type: received.stat_type } : {}), q: rq, price: 0, tax: 0, via, for: pay });
+			return;
+		}
 		if (event === "sell") {
 			const net = Math.round(price * (1 - (player.tax || 0))),
 				tax = price - net;
@@ -1247,8 +1264,9 @@ class Live {
 		const def = this.G.items[name],
 			why = S.current_socket !== S.false_socket ? S.ls_method : null,
 			data = this.reqData;
-		// listing on the stand, NPC sales (counted from the response) and splits aren't used up
-		if (why === "sell" || why === "split" || (why === "equip" && data && typeof data.slot === "string" && /^trade/.test(data.slot) && !data.consume)) return;
+		// listing on the stand, NPC sales (counted from the response), splits and a trade offer's payment (the swap's
+		// ledger: stand_swapped_in) aren't used up
+		if (why === "sell" || why === "split" || why === "trade_swap" || (why === "equip" && data && typeof data.slot === "string" && /^trade/.test(data.slot) && !data.consume)) return;
 		const drink = why === "equip" && def && def.gives;
 		if (drink) inc(this.stat(player.name).pots, name, q);
 		const m = this.mx[player.name];

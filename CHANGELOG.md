@@ -32,6 +32,12 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   (`cache/G-<version>-<game>.json`), and `chronal install` writes it. The game's version number alone (15555) stays
   the same across its commits, so another game kept the old data.
 
+### Added
+
+- Trade offers (the game from 98783128: a stand's listing paid with an item, `trade_offer` / `trade_swap`) are
+  recorded: a `trade` event with `via: "swap"` and what was paid (`for`), both sides' ledgers (`stand_swapped_out`,
+  `stand_swapped_in`), `live_check`'s item check; the dashboard's Items "Traded" tab shows them as "trade offer".
+
 ## [0.8.0] - 2026-10-06
 
 ### Upgrading
