@@ -16,6 +16,14 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   true -> none, world.ugrace_fixed false -> none): a setting left out reads as its default. A change whose two sides
   read the same (world.ugrace none -> none) is not listed.
 
+### Changed
+
+- Compare names a series in one short line: at most 3 of its changes from the baseline, the ones that change results
+  first (characters, gear, CODE, run and world settings); the rest in its "+N" chip, listed by group. Versions, CODE
+  names, the world's start date and account ages are only in that list. A run that shares less than half of its
+  characters with the baseline shows its own label and "other setup: N differences". The charts' legends name each
+  series by its name only, the full label on hover. ([dashboard](docs/reference/dashboard.md))
+
 ## [0.7.0] - 2026-10-06
 
 ### Added

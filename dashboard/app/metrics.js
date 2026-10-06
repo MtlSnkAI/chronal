@@ -566,6 +566,21 @@ export function changes(a, b) {
 	const rank = { who: 0, slot: 1, code: 2, inv: 3, at: 4, set: 5, bank: 6 };
 	return [...out.values()].sort((x, y) => rank[x.kind] - rank[y.kind]);
 }
+// a change's group (the headings of a series' full list of changes, in this order), and the ones never shown inline: the
+// versions, CODE names, the world's start date, account ages, notes (they rarely explain a difference in results)
+export const CHG_GROUPS = ["Characters", "Gear", "CODE", "World and run", "Accounts", "Settings", "Versions"];
+export function chgGroup(c) {
+	if (c.kind === "who" || c.kind === "inv" || c.kind === "at") return "Characters";
+	if (c.kind === "slot") return "Gear";
+	if (c.kind === "code") return "CODE";
+	if (c.kind === "bank") return "Accounts";
+	if (/^(sim|chronal)$/.test(c.key)) return "Versions";
+	if (/^code_names\./.test(c.key)) return "CODE";
+	if (/^(world|run|party)\./.test(c.key)) return "World and run";
+	if (/^accounts\./.test(c.key)) return "Accounts";
+	return c.who ? "Characters" : "Settings";
+}
+export const chgLow = (c) => c.kind === "set" && /^(sim|chronal|world\.start|code_names\..*|.*age_days|.*\.note|notes.*)$/.test(c.key);
 // a setting's name and value as they read (the setup's keys; the snapshot's when a run has no setup file)
 const KEYN = { "run.duration": "duration", "run.duration_ms": "duration", "run.warmup": "warm-up", "run.warmup_ms": "warm-up", "run.until": "until", "run.grid_ms": "grid", "world.age": "world age", "world.age_ms": "world age", "world.ping": "ping", "world.threads": "threads", "party.members": "party", "party.leader": "leader", "party.form": "party form", sim: "sim", chronal: "chronal" };
 export const keyName = (k) => KEYN[k] || k.replace(/^characters\[([^\]]+)\]\.state\.slots\.(\w+)\.(\w+)$/, (x, n, sl, f) => n + "'s " + sl + ({ name: "", level: " level", stat_type: " stat", p: " title" }[f] ?? " " + f)).replace(/^accounts\.([^.]+)\.age_days$/, "$1's account age").replace(/^characters\[([^\]]+)\]\.(state\.)?/, "$1 ").replace(/^roster\[([^\]]+)\]\./, "$1 ").replace(/_ms$/, "");

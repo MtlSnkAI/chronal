@@ -115,7 +115,7 @@ h2.ttl { margin:0; }
 #pop { position:fixed; z-index:9; display:grid; gap:12px; width:max-content; max-width:min(360px, calc(100vw - 16px)); padding:12px; background:var(--card); border:1px solid var(--rule); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.24); }
 #pop p { margin:0; } #pop .pbtn { display:flex; justify-content:flex-end; gap:8px; }
 /* the tooltips: at once, under what they explain, in the page's look */
-#htip:has(.tch) { max-width:min(440px, 90vw); } #htip .tch { display:grid; grid-template-columns:auto 1fr; gap:4px 8px; align-items:center; white-space:normal; } #htip .tch .lc { justify-self:start; }
+#htip:has(.tch) { max-width:min(440px, 90vw); } #htip .tch { display:grid; grid-template-columns:auto 1fr; gap:4px 8px; align-items:center; white-space:normal; } #htip .tch .lc { justify-self:start; } #htip .tch .tgh { grid-column:1/-1; margin-top:4px; }
 #htip { position:fixed; z-index:10; max-width:min(360px, 90vw); padding:4px 8px; border-radius:6px; background:var(--card); color:var(--ink); border:1px solid var(--rule); font-size:var(--fs-s); font-weight:var(--fw-n); line-height:1.4; white-space:pre-line; pointer-events:none; box-shadow:0 4px 16px rgba(0,0,0,.18); }
 [data-tip] { cursor:help; } button[data-tip], a[data-tip], input[data-tip], label[data-tip], [data-dot], .rt tr [data-tip] { cursor:pointer; } button:disabled[data-tip] { cursor:help; }
 /* colour swatches of picked runs and groups */

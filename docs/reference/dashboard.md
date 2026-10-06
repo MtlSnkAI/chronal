@@ -81,8 +81,14 @@ start. **Remove finished** moves every finished and stopped run to `removed/` be
 
 **Compare:** the series in the URL (runs and groups). **Summary**: per headline metric each series' mean and its change
 from the baseline, coloured only when Welch's t-test gives p < 0.05; per character; the timeline (mean and sd band);
-every run as a dot; a sweep's metric against the swept setting. What a series changes from the baseline lists the
-settings it differs in, the sim's commit and chronal's version included (`none` for a run from before 0.7.0). The other tabs: Detail's, per series. A click on a
+every run as a dot; a sweep's metric against the swept setting. A series is named by what it changes from the
+baseline: at most 3 changes as chips, the ones that change results first (characters in or out, gear, CODE, then the
+run and world settings); the rest in its "+N" chip, listed by group (Characters, Gear, CODE, World and run, Accounts,
+Settings, Versions) in its tooltip. The sim's commit, chronal's version, CODE names, the world's start date and account
+ages are only ever in that list. A setting a run's setup file leaves out (one from before it existed) counts as its
+default. A series that shares less than half of its characters with the baseline is another setup: its own label and
+one chip, "other setup: N differences", with the list in its tooltip. The charts' legends name each series short (its
+name; with the baseline's name, its first change), the whole label on hover. The other tabs: Detail's, per series. A click on a
 series makes it the baseline.
 
 **New sim** (the page): a setup composed as `chronal new` does, previewed on every change:
