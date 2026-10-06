@@ -1,4 +1,5 @@
-// The dashboard: every run in the live dir, live (chronal run writes <id>.json about once a real second: sim/live.js);
+// The dashboard: every run in the live dir and its folders (one level: <folder>/<id>), live (chronal run writes <id>.json
+// about once a real second: sim/live.js);
 // this serves a page that polls them (dashboard/app: index.html, and main.js with its modules: the app, in Preact).
 // It runs in its own process, so it costs the runs nothing.
 //   chronal dash [--port 8089] [--host 127.0.0.1] [--dir live]
@@ -9,8 +10,8 @@
 // A run is running, stalled (alive, but no update for 15 s), stopped, failed or done. Alive: its writer (the snapshot's
 // proc: pid, start time, cwd) runs on this host; on another host the file's age decides.
 // Stop requests go to <id>.ctl beside the snapshot, which the run polls and acks (control.ack). Removing a run moves a
-// run's files to live/removed/ (restore by moving them back); a running one is stopped first and moved once it has
-// ended (live/.remove-when-done.json), never hidden.
+// run's files to the removed/ beside them (live/removed/, live/<folder>/removed/; restore by moving them back); a
+// running one is stopped first and moved once it has ended (live/.remove-when-done.json), never hidden.
 // Launches (api/launch; registry live/.launches.json, logs in live/logs/): a run of a setup (<id>.setup.json beside its
 // snapshot, api/setup/<id>) again from that file: its stored CODE and start states (or the CODE its source gives now:
 // current_code), a new duration, seed, account age, warm-up, world age and ping (chronal run <file>; CHRONAL_THREADS_MAX
@@ -45,11 +46,11 @@ const { cfg, config, gData, ROOT } = require("../lib/config");
 const SETUP = require("../lib/setup");
 const { newRuns } = require("./new");
 const { createViewer } = require("../viewer/server");
+// a run's process (verified by pid, start time and cwd), its state, its control requests (lib/runs.js: the CLI's too)
+const RUNS = require("../lib/runs"),
+	{ HOST, RUN_FILE, procStart, identify, alive, stateOf, liveDirs } = RUNS;
 
-const STALE_MS = 15_000,
-	VIEWER_IDLE_MS = 5 * 60e3, // the viewer's backend unused this long: closed
-	HOST = os.hostname(),
-	RUN_FILE = /^[\w.-]+--\d+\.json$/, // a run's snapshot; anything else in the live dir is a side file or a dot file
+const VIEWER_IDLE_MS = 5 * 60e3, // the viewer's backend unused this long: closed
 	SIDE = [".json", ".grid.ndjson", ".items.ndjson", ".ctl", ".setup.json", ".rec", ".state"], // a run's files, moved together (.rec: its replay recordings, .state: its state exports; dirs)
 	ON = new Set(["running", "stalled"]),
 	RANK = { running: 0, stalled: 0, stopped: 1, failed: 1, done: 2 },
@@ -105,61 +106,6 @@ const CUR_TOK = / (current [0-9a-f]{8}(?:\/[0-9a-f]{8})*)(?= |$)/,
 	WORLD_TOK = / (world \d+(?:\.\d+)?[smhd])(?= |$)/, // a new world age ("world 2h")
 	PING_TOK = / (ping \d+(?:\.\d+)?)(?= |$)/; // a new ping ("ping 5")
 const retok = (t, re, now) => retag(t, (re.exec(t) || [])[1], now);
-
-// A process by pid on this host: the start time in /proc/<pid>/stat (field 22, clock ticks since boot) tells it from a
-// later one with the same pid; its cwd is checked too before anything is signalled.
-function procStart(pid) {
-	try {
-		const s = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
-		return s.slice(s.lastIndexOf(")") + 2).split(" ")[19];
-	} catch (e) {
-		return null;
-	}
-}
-// true: that very process runs here; false: it has ended; null: can't tell (no proc, another host or user, no /proc)
-function identify(p) {
-	if (!p || !(p.pid > 0) || p.host !== HOST) return null;
-	try {
-		process.kill(p.pid, 0);
-	} catch (e) {
-		return e.code === "EPERM" ? null : false;
-	}
-	try {
-		if (p.start != null) {
-			if (procStart(p.pid) !== String(p.start)) return false;
-		} else if (p.cmdline && fs.readFileSync(`/proc/${p.pid}/cmdline`, "latin1") !== p.cmdline) return false;
-		if (p.cwd && fs.readlinkSync(`/proc/${p.pid}/cwd`).replace(/ \(deleted\)$/, "") !== p.cwd) return false;
-	} catch (e) {
-		return e.code === "ENOENT" ? false : null;
-	}
-	return true;
-}
-const seen = new Map(); // "host pid start cwd" -> { t, v }: one look per second
-function alive(p) {
-	if (!p || !p.pid) return null;
-	const k = [p.host, p.pid, p.start, p.cwd, p.cmdline].join(" "),
-		c = seen.get(k);
-	if (c && Date.now() - c.t < 1000) return c.v;
-	if (seen.size > 500) seen.clear();
-	const v = identify(p);
-	seen.set(k, { t: Date.now(), v });
-	return v;
-}
-const pidAlive = (pid) => {
-	try {
-		return process.kill(pid, 0), true;
-	} catch (e) {
-		return e.code === "EPERM";
-	}
-};
-function stateOf(w, a) {
-	const failed = !!(w.end && w.end.reason === "failed");
-	if (w.done) return failed ? "failed" : "done";
-	const stale = !(Date.now() - Date.parse(w.updated) <= STALE_MS);
-	if (a === true) return stale ? "stalled" : "running";
-	if (a === false || failed) return failed ? "failed" : "stopped";
-	return stale ? "stopped" : "running";
-}
 
 // git head, plus a hash of the uncommitted diff (as live.js writes versions.sim / versions.code)
 const git = (dir, ...a) => new Promise((resolve) => execFile("git", ["-C", dir, ...a], { encoding: "utf8", maxBuffer: 64 << 20 }, (e, out) => resolve(e ? null : out)));
@@ -220,20 +166,20 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 	appDir = appDir || c.al_root;
 	root = path.resolve(root);
 	const cli = path.join(root, "chronal.js");
-	const removedDir = path.join(dir, "removed"),
-		rwdFile = path.join(dir, ".remove-when-done.json"),
+	const rwdFile = path.join(dir, ".remove-when-done.json"),
 		launchFile = path.join(dir, ".launches.json"),
 		settingsFile = path.join(dir, ".dash.json");
 	const readSet = (f) => new Set([].concat(readJson(f, [])).filter((x) => typeof x === "string"));
 	// recorded runs played in the game's own page (viewer/server.js), on this port
 	const viewer = createViewer({ dir: () => dir, appDir, idleMs: viewerIdleMs });
 
-	// a run's files to removed/: never a live run's (the callers check)
+	// a run's files to the removed/ beside them: never a live run's (the callers check); removedOf(id): its path there
+	const removedOf = (id) => path.join(path.dirname(path.join(dir, id)), "removed", path.basename(id));
 	function moveAway(id) {
-		fs.mkdirSync(removedDir, { recursive: true });
+		fs.mkdirSync(path.dirname(removedOf(id)), { recursive: true });
 		for (const s of SIDE)
 			try {
-				fs.renameSync(path.join(dir, id + s), path.join(removedDir, id + s));
+				fs.renameSync(path.join(dir, id + s), removedOf(id) + s);
 			} catch (e) {}
 	}
 	// runs hidden while they ran (.hidden.json, the orphans): shown again, removed once they have ended; no stop request
@@ -263,13 +209,15 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 
 	const cache = new Map(); // file -> { mtimeMs, size, w }
 	function worlds() {
-		let files = [],
+		// <id>.json, <folder>/<id>.json
+		const files = [],
 			recs = new Set();
-		try {
-			const all = fs.readdirSync(dir);
-			files = all.filter((f) => RUN_FILE.test(f));
-			recs = new Set(all.filter((f) => f.endsWith(".rec")));
-		} catch (e) {}
+		for (const { sub, dir: d } of liveDirs(dir))
+			try {
+				const all = fs.readdirSync(d).map((f) => (sub ? sub + "/" : "") + f);
+				files.push(...all.filter((f) => RUN_FILE.test(path.basename(f))));
+				for (const f of all) if (f.endsWith(".rec")) recs.add(f);
+			} catch (e) {}
 		const names = new Set(files),
 			rwd = readSet(rwdFile),
 			keys = new Map(launches.map((l) => [l.key, l])),
@@ -350,23 +298,13 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 
 	// Requests to a run: <id>.ctl { seq, stop?, at }, written whole (tmp + rename); the run polls it and acks
 	// (control.ack = seq). A request not acked yet is kept in the next one.
-	const ctlOk = (w) => !!(w.control && typeof w.control.file === "string" && path.basename(w.control.file) === w.id + ".ctl");
+	const ctlOk = (w) => !!(w.control && typeof w.control.file === "string" && path.basename(w.control.file) === path.basename(w.id) + ".ctl");
 	const ctlPath = (id) => path.join(dir, id + ".ctl");
 	function pendingOf(w) {
 		const q = readJson(ctlPath(w.id), null);
 		return q && q.seq > (+w.control.ack || 0) ? { seq: q.seq, stop: !!q.stop, at: q.at ?? null } : null;
 	}
-	function request(w, patch) {
-		const ack = +w.control.ack || 0,
-			cur = readJson(ctlPath(w.id), null) || {},
-			open = +cur.seq > ack,
-			q = { seq: Math.max(+cur.seq || 0, ack) + 1 };
-		if (patch.stop || (open && cur.stop)) q.stop = true;
-		if (patch.export || (open && cur.export)) q.export = patch.export || cur.export;
-		q.at = Date.now();
-		writeJson(ctlPath(w.id), q);
-		return q;
-	}
+	const request = (w, patch) => RUNS.ctlRequest(ctlPath(w.id), +w.control.ack || 0, patch);
 	function stopRun(id, force) {
 		const w = worlds().find((x) => x.id === id);
 		if (!w) return [404, { reason: `no run ${id}` }];
@@ -880,7 +818,8 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 					return json({ reason: e.message }, 500);
 				}
 			};
-		const p = url.pathname;
+		// (a run's id in a path: the page encodes a folder's run as <folder>%2F<id>)
+		const p = url.pathname.replace(/%2F/gi, "/");
 		if (viewer.claims(req, p)) return viewer.handle(req, res);
 		let m;
 		// without the grid's inline tail: the page reads the grid file
@@ -900,18 +839,18 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 			if (!f.startsWith(base + path.sep)) return res.writeHead(404).end();
 			return fs.readFile(f, (e, b) => (e ? res.writeHead(404).end() : (res.writeHead(200, { "content-type": m[2] === "js" ? "text/javascript; charset=utf-8" : "text/css; charset=utf-8", "cache-control": "max-age=86400" }), res.end(b))));
 		}
-		// a run's resolved setup file as it is (the live dir, else removed/); ?download=1: as a file to save
-		if ((m = /^\/api\/setup\/([\w.-]+--\d+)$/.exec(p)) && req.method === "GET") {
+		// a run's resolved setup file as it is (beside its snapshot, else in the removed/ there); ?download=1: as a file to save
+		if ((m = /^\/api\/setup\/((?:[\w-][\w.-]*\/)?[\w.-]+--\d+)$/.exec(p)) && req.method === "GET") {
 			const id = m[1],
-				f = [dir, removedDir].map((d) => path.join(d, id + ".setup.json")).find((x) => fs.existsSync(x));
+				f = [path.join(dir, id), removedOf(id)].map((x) => x + ".setup.json").find((x) => fs.existsSync(x));
 			if (!f) return json({ reason: `no setup file for ${id}` }, 404);
-			return fs.readFile(f, (e, b) => (e ? json({ reason: `no setup file for ${id}` }, 404) : (res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store", ...(url.searchParams.get("download") === "1" ? { "content-disposition": `attachment; filename="${id}.setup.json"` } : {}) }), res.end(b))));
+			return fs.readFile(f, (e, b) => (e ? json({ reason: `no setup file for ${id}` }, 404) : (res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store", ...(url.searchParams.get("download") === "1" ? { "content-disposition": `attachment; filename="${path.basename(id)}.setup.json"` } : {}) }), res.end(b))));
 		}
 		if ((m = /^\/api\/launch\/(l-[\w-]+)\/log$/.exec(p)) && req.method === "GET") {
 			const [code, o] = launchLog(m[1], Number(url.searchParams.get("tail") || 60));
 			return json(o, code);
 		}
-		const gm = /^\/api\/(grid|items)\/([\w.-]+)$/.exec(p);
+		const gm = /^\/api\/(grid|items)\/((?:[\w-][\w.-]*\/)?[\w.-]+)$/.exec(p);
 		if (gm && req.method === "GET") {
 			const [code, o] = gridRead(gm[2], Number(url.searchParams.get("from") || 0), url.searchParams.get("gen"), gm[1]);
 			return json(o, code);
@@ -930,7 +869,7 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 		// "player" packet its client had): { at, level, xp, max_xp, hp, max_hp, mp, max_mp, gold, type, rip, gear,
 		// gear_stat, stats, s: its conditions, items: its inventory (as players[].inventory), free: its empty slots, log:
 		// the last 100 lines of its game log and chat (rec.js logAt) }; 404 before its first one
-		if ((m = /^\/api\/rec\/([\w.-]+--\d+)\/([\w-]{1,40})\/sheet$/.exec(p)) && req.method === "GET") {
+		if ((m = /^\/api\/rec\/((?:[\w-][\w.-]*\/)?[\w.-]+--\d+)\/([\w-]{1,40})\/sheet$/.exec(p)) && req.method === "GET") {
 			const q = url.searchParams.get("v"),
 				v = q ? Number(q) : NaN,
 				rd = path.join(dir, m[1] + ".rec");
@@ -996,10 +935,10 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 						.then(([code, o]) => json(o, code), (e) => json({ reason: e.message }, 500));
 				});
 			};
-			if ((m = /^\/api\/live\/([\w.-]+)$/.exec(p)) && req.method === "DELETE") return act(() => remove(m[1], url.searchParams.get("stop") === "1"));
+			if ((m = /^\/api\/live\/((?:[\w-][\w.-]*\/)?[\w.-]+)$/.exec(p)) && req.method === "DELETE") return act(() => remove(m[1], url.searchParams.get("stop") === "1"));
 			if (p === "/api/clear-finished" && req.method === "POST") return act(() => [200, worlds().filter((w) => !ON.has(w.state)).map((w) => (moveAway(w.id), { removed: w.id }))]);
-			if ((m = /^\/api\/runs\/([\w.-]+)\/stop$/.exec(p)) && req.method === "POST") return act((b) => stopRun(m[1], b.force === true));
-			if ((m = /^\/api\/runs\/([\w.-]+)\/export$/.exec(p)) && req.method === "POST") return act((b) => exportRun(m[1], b.label));
+			if ((m = /^\/api\/runs\/((?:[\w-][\w.-]*\/)?[\w.-]+)\/stop$/.exec(p)) && req.method === "POST") return act((b) => stopRun(m[1], b.force === true));
+			if ((m = /^\/api\/runs\/((?:[\w-][\w.-]*\/)?[\w.-]+)\/export$/.exec(p)) && req.method === "POST") return act((b) => exportRun(m[1], b.label));
 			if (p === "/api/launch" && req.method === "POST") return act(launch);
 			if (p === "/api/viewer" && req.method === "POST") return act(viewerUse);
 			if ((m = /^\/api\/launch\/(l-[\w-]+)$/.exec(p)) && req.method === "DELETE") return act(() => cancel(m[1]));
@@ -1049,7 +988,7 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 
 
 // The CODE store's garbage: <dir>/code/<sha>.json (slot maps) and <sha>.js (entries) that no setup file in dir or
-// dir/removed/ uses. A blob younger than 10 minutes stays (a run that stored its CODE and is about to write its setup
+// dir/removed/ uses (a folder of runs has its own: chronal dash --gc-code does each). A blob younger than 10 minutes stays (a run that stored its CODE and is about to write its setup
 // file); an unreadable setup file stops it (nothing deleted). -> { kept, deleted, bytes, files } (files: deleted names)
 function gcCode(dir) {
 	const store = path.join(dir, "code"),
@@ -1095,8 +1034,11 @@ function cli(argv) {
 		dir = config({ cli: { live_dir: arg("dir", null) } }).live_dir;
 	if (argv.includes("--gc-code")) {
 		try {
-			const r = gcCode(dir);
-			console.log(`${path.join(dir, "code")}: deleted ${r.deleted} unused CODE files (${(r.bytes / 1024).toFixed(0)} KB), kept ${r.kept}`);
+			for (const { dir: d } of liveDirs(dir)) {
+				if (!fs.existsSync(path.join(d, "code"))) continue;
+				const r = gcCode(d);
+				console.log(`${path.join(d, "code")}: deleted ${r.deleted} unused CODE files (${(r.bytes / 1024).toFixed(0)} KB), kept ${r.kept}`);
+			}
 			process.exit(0);
 		} catch (e) {
 			console.error("gc-code: " + e.message);

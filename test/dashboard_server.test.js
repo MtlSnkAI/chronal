@@ -807,3 +807,60 @@ test("api/rec sheet: a recorded character's sheet at a moment (gear, stats, cond
 		await s.close();
 	}
 });
+
+test("folders: runs one level down are <folder>/<id> (not removed/, code/, logs/, a run's .rec/.state, deeper); requests, files and removal by that id; ../ never", async () => {
+	const dir = mkdir("folders"),
+		fid = path.join(dir, "fid");
+	fs.mkdirSync(fid);
+	snap(dir, "top--1", { proc: ME });
+	snap(fid, "a--2", { proc: ME, control: ctlOf("a--2") });
+	snap(fid, "b--3", { done: true, end: { reason: "complete" }, grid: { gen: 0 } });
+	fs.writeFileSync(path.join(fid, "b--3.setup.json"), JSON.stringify({ name: "b" }));
+	fs.writeFileSync(path.join(fid, "b--3.grid.ndjson"), '{"h":1}\n');
+	fs.mkdirSync(path.join(fid, "b--3.rec"));
+	for (const f of ["Ran1.rec.idx", "Ran1.rec.gz"]) fs.writeFileSync(path.join(fid, "b--3.rec", f), "x");
+	for (const d of ["removed", "code", "logs", "top--1.state", "fid/deeper", "fid/removed"]) fs.mkdirSync(path.join(dir, d), { recursive: true });
+	for (const d of ["removed", "code", "logs", "top--1.state", "fid/deeper", "fid/removed"]) snap(path.join(dir, d), "no--9");
+	fs.writeFileSync(path.join(dir, "..", "esc--1.setup.json"), "{}"); // beside the live dir: never served
+	const s = await serve({ dir });
+	try {
+		const w = byId(await s.live());
+		assert.deepStrictEqual(Object.keys(w).sort(), ["fid/a--2", "fid/b--3", "top--1"]);
+		assert.deepStrictEqual([w["fid/a--2"].state, w["fid/a--2"].ctl.stop, w["fid/b--3"].rec], ["running", true, ["Ran1"]]);
+		// by its id as the page sends it (encoded)
+		let r = await s.call("POST", "/api/runs/fid%2Fa--2/stop");
+		assert.deepStrictEqual([r.code, r.body], [202, { seq: 1 }]);
+		assert.strictEqual(read(path.join(fid, "a--2.ctl")).stop, true);
+		assert.ok(!fs.existsSync(path.join(dir, "a--2.ctl")));
+		assert.strictEqual(byId(await s.live())["fid/a--2"].ctl.pending.stop, true);
+		r = await s.get("/api/setup/fid%2Fb--3?download=1");
+		assert.deepStrictEqual([r.code, r.body, r.headers["content-disposition"]], [200, { name: "b" }, 'attachment; filename="b--3.setup.json"']);
+		r = await s.get("/api/grid/fid%2Fb--3");
+		assert.deepStrictEqual([r.code, r.body.text], [200, '{"h":1}\n']);
+		r = await s.get("/replay/fid%2Fb--3/Ran1");
+		assert.strictEqual(r.code, 302);
+		assert.match(r.headers.location, /chronal_replay=fid%2Fb--3/);
+		for (const p of ["/api/setup/..%2Fesc--1", "/api/setup/../esc--1", "/api/grid/..%2Fesc--1", "/replay/..%2Fesc--1/Ran1", "/api/setup/fid%2F..%2F..%2Fesc--1"]) assert.strictEqual((await s.get(p)).code, 404, p);
+		assert.strictEqual((await s.call("POST", "/api/runs/..%2Ftop--1/stop")).code, 404);
+		// removed: to the folder's own removed/, its setup still served from there
+		r = await s.call("DELETE", "/api/live/fid%2Fb--3");
+		assert.deepStrictEqual([r.code, r.body], [200, { removed: "fid/b--3" }]);
+		assert.deepStrictEqual(fs.readdirSync(path.join(fid, "removed")).sort(), ["b--3.grid.ndjson", "b--3.json", "b--3.rec", "b--3.setup.json", "no--9.json"]);
+		assert.deepStrictEqual(Object.keys(byId(await s.live())).sort(), ["fid/a--2", "top--1"]);
+		assert.deepStrictEqual((await s.get("/api/setup/fid%2Fb--3")).body, { name: "b" });
+	} finally {
+		await s.close();
+		fs.rmSync(path.join(dir, "..", "esc--1.setup.json"), { force: true });
+	}
+	// --gc-code: each folder's CODE store against its own setup files
+	const blob = (c) => c.repeat(16),
+		old = (Date.now() - 3600e3) / 1000;
+	for (const d of [dir, fid]) {
+		fs.mkdirSync(path.join(d, "code"), { recursive: true });
+		fs.writeFileSync(path.join(d, "code", blob("a") + ".js"), "x");
+		fs.utimesSync(path.join(d, "code", blob("a") + ".js"), old, old);
+	}
+	fs.writeFileSync(path.join(fid, "removed", "b--3.setup.json"), JSON.stringify(sideFile())); // (a setup file gc reads)
+	const p = spawnSync(process.execPath, [path.join(__dirname, "../chronal.js"), "dash", "--gc-code", "--dir", dir], { encoding: "utf8" });
+	assert.deepStrictEqual([p.status, p.stdout.trim().split("\n")], [0, [`${path.join(dir, "code")}: deleted 1 unused CODE files (0 KB), kept 0`, `${path.join(fid, "code")}: deleted 1 unused CODE files (0 KB), kept 0`]]);
+});

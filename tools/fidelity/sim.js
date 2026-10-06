@@ -93,9 +93,14 @@ for (const n of notes) console.log(n);
 // seeds of one name starting in the same ms would write one file), --jobs at once
 const queue = seeds.split(","), jobs = Math.max(1, +(opt.jobs || 4));
 let failed = 0;
+// SIGINT/SIGTERM: passed on to the runs going (chronal new passes it on to its runs), none started after
+const children = new Set();
+for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { queue.length = 0; for (const c of children) c.kill(sig); });
 const one = (seed) => new Promise((ok) => {
 	const n = `${name}-s${seed}`, c = spawn(process.execPath, [path.join(ROOT, "chronal.js"), ...fl, "--name", n, "--save", path.join(out, "setups", n + ".json"), "--force", "--run", "--seeds", seed, "--live", out], { cwd: ROOT });
 	let log = "";
+	children.add(c);
+	c.on("exit", () => children.delete(c));
 	c.stdout.on("data", (d) => (log += d));
 	c.stderr.on("data", (d) => (log += d));
 	c.on("close", (code) => {

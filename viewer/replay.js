@@ -13,7 +13,7 @@ const path = require("path");
 const { readIndex, fold } = require("../lib/rec");
 const { initScript } = require("./timewarp");
 
-const RUN_ID = /^[\w.-]+--\d+$/,
+const RUN_ID = require("../lib/runs").RUN_ID,
 	NAME = /^[\w-]{1,40}$/;
 const VERSION = 2 ** 50; // the replay's clock versions start here
 

@@ -35,9 +35,13 @@ export function keepPicks(route) {
 // ---- filters and sorts (remembered in this browser), the groups shown open
 const tsort = load("dash_tsort", { col: null, dir: -1 }, (x) => { const s = JSON.parse(x); return s && (s.col === null || typeof s.col === "string") ? { col: s.col, dir: s.dir === 1 ? 1 : -1 } : { col: null, dir: -1 }; });
 const csort = load("dash_csort", { col: null, dir: -1 }, (x) => { const s = JSON.parse(x); return s && (s.col === null || typeof s.col === "string") ? { col: s.col, dir: s.dir === 1 ? 1 : -1 } : { col: null, dir: -1 }; });
-const tfilt = { status: load("dash_tfilt", [], (x) => [].concat(JSON.parse(x).status || [])), q: "" };
+// folder: the live dir's folder its runs are in (null: every folder; "": the live dir itself)
+const tf0 = load("dash_tfilt", {}, (x) => JSON.parse(x) || {});
+const tfilt = { status: [].concat(tf0.status || []), folder: typeof tf0.folder === "string" ? tf0.folder : null, q: "" };
+const tsave = () => save("dash_tfilt", JSON.stringify({ status: tfilt.status, folder: tfilt.folder }));
 const openG = new Set();
-const named = (w) => { const q = tfilt.q.trim().toLowerCase(); return !q || String(w.tag || w.id).toLowerCase().includes(q); };
+const folderOf = (w) => (w.id.includes("/") ? w.id.slice(0, w.id.indexOf("/")) : "");
+const named = (w) => { const q = tfilt.q.trim().toLowerCase(); return (tfilt.folder == null || folderOf(w) === tfilt.folder) && (!q || String(w.tag || w.id).toLowerCase().includes(q)); };
 const passes = (w) => (!tfilt.status.length || tfilt.status.includes(catOf(w))) && named(w);
 // a group's status: running while any of its runs is, else its runs' when they agree, else done
 const grpCat = (g) => { const cs = g.runs.map(catOf); return cs.includes("running") ? "running" : cs.every((c) => c === cs[0]) ? cs[0] : "done"; };
@@ -171,7 +175,7 @@ function Table({ cols, items, sort, onSort, ckall, phs, cls, sel, route }) {
 			${items.map((it) => (it.g ? html`<${GroupRows} key=${it.id} it=${it} cols=${cols} sel=${sel} route=${route} two=${cls === "cmp"} />` : html`<${RunRow} key=${it.id} w=${it.w} cols=${cols} sel=${sel} route=${route} two=${cls === "cmp"} />`))}</tbody></table>`;
 }
 
-// ---- the sidebar: its filters (status, with their counts; the name), the list, the picked runs' bar
+// ---- the sidebar: its filters (status, with their counts; the folder; the name), the list, the picked runs' bar
 export function RunsSide({ route }) {
 	const cols = sideCols(), items = entries(cols, tsort), sel = route.page === "run" ? route.id : null, ref = useRef(null);
 	const ph0 = launchesOf().filter(showPh), qd = ph0.filter((l) => l.state === "queued"), phs = [...ph0.filter((l) => l.state !== "queued"), ...(qd.length ? [qd] : [])];
@@ -182,12 +186,17 @@ export function RunsSide({ route }) {
 	const speed = S.data.filter(live_).reduce((s, w) => s + (w.speed.now || 0), 0), starting = launchesOf().filter((l) => l.state === "starting").length, queued = qd.length, th = getCst() && getCst().sims;
 	const other = S.data.filter(named);
 	const rtip = [speed ? speed.toFixed(0) + "x: the running runs' combined speed" : "", th && th.threads_max ? th.threads_busy + " of " + th.threads_max + " sim threads busy" : "", starting ? starting + " starting" : "", queued ? queued + " queued" : ""].filter(Boolean).join("; ");
-	const fst = (k) => { const a = tfilt.status, i = a.indexOf(k); i < 0 ? a.push(k) : a.splice(i, 1); save("dash_tfilt", JSON.stringify({ status: a })); redraw(); };
+	const fst = (k) => { const a = tfilt.status, i = a.indexOf(k); i < 0 ? a.push(k) : a.splice(i, 1); tsave(); redraw(); };
+	// the folders with runs (shown when there is one besides the live dir itself)
+	const folders = [...new Set(S.data.map(folderOf))].sort();
+	if (tfilt.folder != null && !folders.includes(tfilt.folder) && S.data.length) ((tfilt.folder = null), tsave());
+	const fsel = folders.some(Boolean) ? html`<select aria-label="Folder" data-tip="the live dir's folder the runs are in" value=${tfilt.folder == null ? "*" : tfilt.folder} onChange=${(e) => ((tfilt.folder = e.currentTarget.value === "*" ? null : e.currentTarget.value), tsave(), redraw())}>
+			<option value="*">all folders</option>${folders.map((f) => html`<option value=${f}>${f || "live dir"} (${S.data.filter((w) => folderOf(w) === f).length})</option>`)}</select>` : null;
 	const nrun = items.reduce((a, it) => a + (it.g ? it.runs.length : 1), 0);
 	const onSort = (c) => { Object.assign(tsort, tsort.col === c.id ? { dir: -tsort.dir } : { col: c.id, dir: c.id === "started" || c.id === "time" ? -1 : 1 }); save("dash_tsort", JSON.stringify(tsort)); redraw(); };
 	return html`<div id="runs">
 		<div class="rfilt"><span class="seg sm" role="group" aria-label="Status">${[["running", "running"], ["done", ""], ["stopped", "stopped"], ["failed", "bad"]].map(([k, dot]) => html`<button type="button" aria-pressed=${tfilt.status.includes(k)} data-tip=${k === "running" && rtip ? rtip : null} onClick=${() => fst(k)}><i class=${"dot " + dot}></i>${k}<span class="fc">${other.filter((w) => catOf(w) === k).length}</span></button>`)}</span>
-			<input type="search" id="tq" placeholder="Filter by name" aria-label="Filter by name" value=${tfilt.q} onInput=${(e) => ((tfilt.q = e.currentTarget.value), redraw())} /><span id="rn" class="gu">${nrun === S.data.length ? S.data.length + " runs" : nrun + " of " + S.data.length + " runs"}</span></div>
+			${fsel}<input type="search" id="tq" placeholder="Filter by name" aria-label="Filter by name" value=${tfilt.q} onInput=${(e) => ((tfilt.q = e.currentTarget.value), redraw())} /><span id="rn" class="gu">${nrun === S.data.length ? S.data.length + " runs" : nrun + " of " + S.data.length + " runs"}</span></div>
 		<div id="rtab" ref=${ref}>${!S.data.length && !phs.length ? html`<div class="empty"><p>No runs yet.</p></div>` : [html`<${Table} cols=${cols} items=${items} sort=${tsort} onSort=${onSort} ckall=${true} phs=${phs} cls="ov" sel=${sel} route=${route} />`, items.length ? null : html`<div class="empty">No run passes the filters.</div>`]}</div>
 		<${PickBar} route=${route} />
 	</div>`;

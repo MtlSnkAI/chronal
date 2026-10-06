@@ -157,8 +157,8 @@ export function runChips(w) {
 }
 // a run's label (a group's: its count of runs as the last part that folds)
 export const RunLabel = ({ w, count, two }) => html`<${Label} name=${labelOf(w).name} two=${two} chips=${count ? [...runChips(w), { key: "gn", gn: true, tip: count, el: (hd) => html`<span class="gu gn" hidden=${hd}>${count}</span>` }] : runChips(w)} />`;
-// a row's hover: the setup and the CODE hash, no more (the full tag and the notes: the Run tab)
-export const whatTip = (w) => [w.setup && w.setup.name ? "setup: " + w.setup.name : w.tag || w.id, codeOf(w) ? "CODE " + codeOf(w) : ""].filter(Boolean).join("\n");
+// a row's hover: the setup and the CODE hash (and the folder of a folder's run), no more (the full tag and the notes: the Run tab)
+export const whatTip = (w) => [w.setup && w.setup.name ? "setup: " + w.setup.name : w.tag || w.id, codeOf(w) ? "CODE " + codeOf(w) : "", w.id.includes("/") ? "folder " + w.id.slice(0, w.id.indexOf("/")) : ""].filter(Boolean).join("\n");
 
 // ---- a run's seed and state (running, stalled, stopped without a final snapshot, failed, stopped early), its party
 export const SeedPill = ({ w }) => (seedOf(w) == null ? null : html`<span class="src seed" data-tip=${"SEED=" + seedOf(w) + ": the run's random seed (the same seed and CODE give the same run)"}>seed ${seedOf(w)}</span>`);

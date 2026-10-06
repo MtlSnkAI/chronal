@@ -220,10 +220,11 @@ const main = (argv) => (async () => {
 	const warm = parseDuration(run.warmup),
 		duration = parseDuration(run.duration),
 		t0 = performance.now();
-	const { sim, order } = await startSetup(resolved, bundles, { live: liveDir ? { dir: liveDir, tag: o.tag, setup: { resolved, bundles, from: setup.file } } : false, record: !!o.record });
+	const { sim, order } = await startSetup(resolved, bundles, { live: liveDir ? { dir: liveDir, tag: o.tag, setup: { resolved, bundles, from: setup.file } } : false, record: !!o.record, signals: true });
 	const age = parseDuration(resolved.world.age);
 	console.log(`${resolved.name}: boot + ${age ? `world age ${age / 60e3} min + ` : ""}login ${Math.round(performance.now() - t0)} ms | ping ${resolved.world.ping} ms | ${setup.code_set ? `CODE set ${setup.code_set.name} | ` : ""}${resolved.characters.map((c) => `${c.name} (${c.class} L${c.state.level}, ${c.code.entry} ${c.code.hash})`).join(", ")}${resolved.party && resolved.party.form === "harness" ? " | party" : ""}`);
 	if (sim.live) console.log(`live: ${sim.live.file}\nsetup: ${path.join(sim.live.dir, sim.live.meta.setup.file)}`);
+	console.log(`pid ${process.pid}: SIGINT/SIGTERM${sim.live ? ` or chronal stop ${sim.live.id}` : ""} stops it at the next game minute`);
 	if (sim.live) sim.live.plan({ duration_ms: duration, warmup_ms: warm, until: run.until });
 	// the run's state as exports (sim/export.js): at the end, and when the dashboard or a steering entry asks
 	const stateDir = o["no-export"] ? null : o.export ? path.resolve(o.export) : sim.live ? path.join(sim.live.dir, sim.live.id + ".state") : null;

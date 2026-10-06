@@ -1,7 +1,8 @@
 # The dashboard
 
 `chronal dash` serves a page that shows every run in the live folder as it runs, compares runs, starts new ones and
-plays recorded runs back. It runs in its own process and only reads the runs' files, so it costs the runs nothing.
+plays recorded runs back. It lists the live folder's runs and those in its folders, one level down (e.g.
+`live/fidelity/`, where the fidelity tools write): a folder's run has the id `<folder>/<id>`. It runs in its own process and only reads the runs' files, so it costs the runs nothing.
 
 ## The page
 
@@ -27,7 +28,7 @@ Accounts, Settings), then the runs list:
   15 s; done grey, stopped amber: killed or stopped early; failed red), its party (a bar per character in its class
   colour; hover: class, name, level), its short label (the setup's name, then chips for what sets it apart from the
   other runs of that name: items, CODE, the sim's version, warm-up, world age, ping, account age) and its game time;
-- filters by state and name; sorting by any column;
+- filters by state, folder (when the live folder has runs in folders) and name; sorting by any column;
 - **Groups:** runs of one setup (`setup_key`), duration, warm-up and Until fold under a group row; their numbers come
   from the runs that didn't fail, each seed once (a run is deterministic per seed and CODE);
 - **The queue:** a launch past the free sim threads (one per character plus the server's, up to
@@ -40,11 +41,12 @@ Accounts, Settings), then the runs list:
 
 **Runs** (the Runs table): every run the list's filters pass, with its rank by the headline metric, up to 6 more metric
 columns (**Columns**: 33 metrics in 7 groups, saved for every page on that live folder), deaths, game time, seed and
-start. **Remove finished** moves every finished and stopped run to `live/removed/`.
+start. **Remove finished** moves every finished and stopped run to `removed/` beside it (`live/removed/`,
+`live/<folder>/removed/`).
 
 **A run's page:** its seed, state, short label and rank, then its actions: **Replay** (a recorded run), **Rerun**,
 **Stop run** and **Export state** (running: every character's state now to `<id>.state/`, [state exports](export.md)),
-**Remove** (to `live/removed/` with its state exports; a running run is stopped first). Its tabs:
+**Remove** (to the `removed/` beside it with its state exports; a running run is stopped first). Its tabs:
 - **Characters**: a sheet per character as the game shows it (HP, MP and XP bars, gear with the game's tooltips,
   conditions, stats; More,
   Inventory, Game log folds: its last 30 lines, CODE errors in red; a red mark by its name counts them); with the
@@ -160,8 +162,8 @@ how it was started (`run`, `launch`) and how it ended (`end`).
 - **Stop:** a request in `<id>.ctl`, which the run polls about once a real second and acknowledges; it ends at its next
   game minute with its final numbers. Force stop sends SIGKILL, only to the verified process (pid, start time, cwd on
   this host), with no final snapshot.
-- **Remove:** a finished run moves to `live/removed/` with its side files (grid, setup, recordings); move them back to
-  restore it. A running one is stopped and moved once it has ended.
+- **Remove:** a finished run moves to the `removed/` beside it (`live/removed/`, `live/<folder>/removed/`) with its side
+  files (grid, setup, recordings, state exports); move them back to restore it. A running one is stopped and moved once it has ended.
 - **Launches** (reruns, New sim's starts) run detached, `live/logs/<launch key>.log`, and are listed until their run
   shows up (cancel before); the registry is `live/.launches.json`.
 

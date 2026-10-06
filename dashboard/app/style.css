@@ -72,7 +72,7 @@ h2.ttl { margin:0; }
 
 /* the runs tables: dense bordered rows; groups fold their runs; the picked ones carry their colour on the left edge */
 .rfilt { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--rule); }
-.rfilt input { flex:1 1 8em; min-width:0; }
+.rfilt input { flex:1 1 8em; min-width:0; } .rfilt select { flex:0 1 auto; min-width:0; max-width:12em; }
 #runs .rfilt .seg { flex:1 1 100%; display:flex; flex-wrap:nowrap; } #runs .rfilt .seg button { flex:1 1 auto; min-width:0; justify-content:center; padding:2px 4px; } #runs .rfilt .fc { margin-left:4px; }
 .rt { border-collapse:collapse; width:100%; font-size:var(--fs-s); font-variant-numeric:tabular-nums; }
 .rt th { position:sticky; top:0; z-index:1; background:var(--card); padding:0; border-bottom:1px solid var(--rule); text-align:left; white-space:nowrap; }
