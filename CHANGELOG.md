@@ -36,6 +36,10 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   shows how far upstream is ahead. `chronal run` and the dashboard warn when the game installed isn't the pin.
   Snapshots record the game's commit (`versions.game`, schema 2.8), shown with the run's versions and in Compare.
   ([cli](docs/reference/cli.md#chronal-install))
+- A weekly check (GitHub Actions, `.github/workflows/upstream.yml`) runs the tests on the game's newest commits and
+  opens an issue (label `upstream`) when they fail, saying which upstream commit broke which tests; it comments when
+  they pass again. A game change that breaks chronal shows up before anyone moves the pin to it
+  ([#1](https://github.com/MtlSnkAI/chronal/issues/1)).
 
 ## [0.7.0] - 2026-10-06
 

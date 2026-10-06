@@ -1,0 +1,73 @@
+# Weekly: chronal's tests (develop) on the game's newest commits (chronal install --latest). When they fail, an issue
+# labelled "upstream" says which upstream commit broke what (an open one gets a comment instead); when they pass again,
+# the open issue says so. The pin (upstream.json) moves in a chronal release once they pass (docs/reference/cli.md).
+name: Upstream game
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  latest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: The game's newest commits
+        run: node chronal.js install --latest
+      - name: How far upstream is ahead of the pin
+        run: node chronal.js install --check | tee check.txt
+      - name: Tests
+        shell: bash
+        run: set -o pipefail; npm test 2>&1 | tee test.log
+      - name: Report a failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          game=$(node -p 'require("./runtime/installed.json").game.slice(0, 8)' 2>/dev/null || echo "?")
+          pinned=$(node -p 'require("./upstream.json").game.commit.slice(0, 8)')
+          {
+            echo "chronal's tests (\`develop\`) fail on the game's newest commit, \`adventureland_mongodb\` $game (chronal is pinned to $pinned in \`upstream.json\`)."
+            echo
+            echo "Run: $RUN"
+            echo
+            echo '```'
+            cat check.txt 2>/dev/null
+            echo '```'
+            echo
+            echo "Failing tests:"
+            echo
+            grep -E '^✖' test.log 2>/dev/null | sort -u | head -40 | sed -E 's/^✖ /- /; s/ \([0-9.]+ms\)$//'
+            echo
+            echo "First error:"
+            echo
+            echo '```'
+            grep -m1 -A6 -E 'Error|FAILED' test.log 2>/dev/null
+            echo '```'
+          } > body.md
+          gh label create upstream --description "the game's newest commits against chronal" --color FBCA04 2>/dev/null || true
+          n=$(gh issue list --label upstream --state open --json number --jq '.[0].number // empty')
+          if [ -n "$n" ]; then gh issue comment "$n" --body-file body.md
+          else gh issue create --title "The game's newest commit ($game) fails chronal's tests" --label upstream --body-file body.md; fi
+      - name: Report a pass
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          game=$(node -p 'require("./runtime/installed.json").game.slice(0, 8)')
+          for n in $(gh issue list --label upstream --state open --json number --jq '.[].number'); do
+            gh issue comment "$n" --body "chronal's tests (\`develop\`) pass on the game's newest commit, \`adventureland_mongodb\` $game: the pin can move to it in a release."
+          done
