@@ -10,6 +10,21 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-06
+
+### Added
+
+- Measure a live realm's upgrade grace: `tools/ugrace/probe.js` (CODE, for live and the sim) asks the server for the
+  chance of upgrading each item in the bag, without upgrading anything, every few minutes for hours;
+  `tools/ugrace/invert.js` solves the readings for the server's grace per level and prints a `world.ugrace` for a
+  setup. See [Measure a realm's upgrade grace](docs/how-to/measure-upgrade-grace.md).
+- `state.p.item_num` sets a character's lucky upgrade slot (0-41): an upgrade of the item in that bag slot gets a
+  lower roll 6 times in 10. The server draws it once per character. ([setup](docs/reference/setup.md#characters))
+
+### Fixed
+
+- State exports keep the lucky upgrade slot: each stage of a continued run drew a new one.
+
 ## [0.5.0] - 2026-10-06
 
 ### Added
@@ -111,7 +126,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 The first release: Adventure Land's real game server and clients on a virtual clock, running your CODE unmodified and
 headless at 100x and more, with a dashboard, replays, and fidelity checks against live.
 
-[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.5.0...develop
+[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.6.0...develop
+[0.6.0]: https://github.com/MtlSnkAI/chronal/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/MtlSnkAI/chronal/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MtlSnkAI/chronal/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MtlSnkAI/chronal/compare/v0.2.0...v0.3.0
