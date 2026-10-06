@@ -10,6 +10,12 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Replays of runs where a character's page loaded again: a broken last line in its recording's index froze the replay
+  at its first moment. The index now skips such lines, so these replays play (the sessions before the last one stay
+  lost).
+
 ## [0.6.0] - 2026-10-06
 
 ### Added

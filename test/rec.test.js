@@ -110,3 +110,14 @@ test("logAt: the last n game log and chat lines at a moment, across members, in 
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
 });
+
+test("readIndex: a line that isn't four numbers is left out (an earlier run's last member written over by its next session, with NULs before it)", () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rec-idx-"));
+	try {
+		const f = path.join(dir, "Ran1.rec.idx");
+		fs.writeFileSync(f, JSON.stringify({ format: "chronal-rec/1", name: "Ran1", member_ms: 1000 }) + "\n100\t900\t0\t50\n1000\t1900\t50\t60\n" + "\0".repeat(40) + "500\t600\t20\t70\n");
+		assert.deepStrictEqual(readIndex(f).members, [{ first: 100, last: 900, off: 0, len: 50 }, { first: 1000, last: 1900, off: 50, len: 60 }]);
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});
