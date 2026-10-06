@@ -201,9 +201,15 @@ function body() {
 }
 // where it starts from: one line; what the pull says as chips
 function fromSec() {
+	// a pull's warnings as short chips: its characters online in one ("online: A, B"), each other one by its first
+	// part; the whole text on hover
+	const pullWarnChips = (ws) => {
+		const on = ws.filter((w) => / is online\b/.test(w)), rest = ws.filter((w) => !on.includes(w));
+		return [...(on.length ? [html`<${KChip} text=${"online: " + on.map((w) => w.split(" is online")[0]).join(", ")} cls="warn" tip=${on.join("\n")} />`] : []), ...rest.map((w) => html`<${KChip} text=${w.split(": ")[0]} cls="warn" tip=${w} />`)];
+	};
 	const p = nfPullOf();
 	const pinfo = p ? p.characters.length + " characters, bank " + fmtN(p.bank && p.bank.gold) + " gold" + (p.account_age && p.account_age.days != null ? ", account " + p.account_age.days + " days old" : "") + (p.overrides.length ? ", snippet exports: " + p.overrides.join(", ") : "") : "";
-	const pchips = !p ? [] : [...(p.game && p.game.differ ? [html`<${KChip} text=${"game data differs: " + p.game.differ} cls="warn" tip=${"Live's game data differs from this checkout's in " + p.game.differ + " entries: runs may not match live (game-diff.json in the pull)"} />`] : []), ...p.warnings.filter((w) => !/^live's game data/.test(w)).map((w) => html`<${KChip} text=${w} cls="warn" />`)];
+	const pchips = !p ? [] : [...(p.game && p.game.differ ? [html`<${KChip} text=${"game data differs: " + p.game.differ} cls="warn" tip=${"Live's game data differs from this checkout's in " + p.game.differ + " entries: runs may not match live (game-diff.json in the pull)"} />`] : []), ...pullWarnChips(p.warnings.filter((w) => !/^live's game data/.test(w)))];
 	const pull = async () => {
 		NF.pulling = true; nfOut = say("pulling the live account (~15 s)..."); draw();
 		let r = null, o = {};

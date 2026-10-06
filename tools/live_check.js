@@ -1,4 +1,4 @@
-// Reconciles a live snapshot (schema v2.6) with itself, its grid file and the server's own counters, and optionally
+// Reconciles a live snapshot (schema v2.6; v2.9: hook_errors) with itself, its grid file and the server's own counters, and optionally
 // with a chronal run RESULT (--result). Exit 1 when a check fails.
 //   node tools/live_check.js live/<id>.json [RESULT.json] [--quiet]
 // Per character:
@@ -74,6 +74,8 @@ const histOk = (h, from = 0) => {
 	return "";
 };
 console.log(`${s.tag} (${s.script}, ${s.strategy}) ${Math.round(M / 60000)} game min measured${s.done ? "" : s.end && s.end.reason === "failed" ? ", failed: " + s.end.detail : ", still running"}`);
+// chronal's measuring code: no hook failed (schema 2.9; a failed one means the numbers around it are off)
+if (s.hook_errors) ok(!Object.keys(s.hook_errors).length, "chronal's hooks: none failed", Object.entries(s.hook_errors).map(([k, x]) => `${k} ${x.n}x: ${x.first}`).join("; "));
 for (const p of s.players) {
 	if (!p.dmg) {
 		info(`${p.name}: no v2 counters`);
@@ -115,13 +117,26 @@ for (const p of s.players) {
 	else {
 		const sb = it.stand_bought || {},
 			ss = it.stand_sold || {};
-		const names = new Set([...Object.keys(it.held), ...Object.keys(it.looted), ...Object.keys(it.consumed), ...Object.keys(it.bought), ...Object.keys(it.sold), ...Object.keys(sb), ...Object.keys(ss), ...Object.keys(it.sent), ...Object.keys(it.received),
+		// trade offers (since 2.9): the owner's listing out, what it took for it in (stand_swapped_out); the taker's the other
+		// way (stand_swapped_in)
+		const swIn = {},
+			swOut = {},
+			add = (o, k, q) => (o[k] = (o[k] || 0) + q);
+		for (const [k, x] of Object.entries(it.stand_swapped_out || {})) {
+			add(swOut, k, x.q);
+			for (const [g, q] of Object.entries(x.for)) add(swIn, g, q);
+		}
+		for (const [k, x] of Object.entries(it.stand_swapped_in || {})) {
+			add(swIn, k, x.q);
+			for (const [g, q] of Object.entries(x.for)) add(swOut, g, q);
+		}
+		const names = new Set([...Object.keys(it.held), ...Object.keys(it.looted), ...Object.keys(it.consumed), ...Object.keys(it.bought), ...Object.keys(it.sold), ...Object.keys(sb), ...Object.keys(ss), ...Object.keys(swIn), ...Object.keys(swOut), ...Object.keys(it.sent), ...Object.keys(it.received),
 				...Object.keys(it.mluck_dupes), ...Object.keys(it.crafted), ...Object.keys(it.from_exchange), ...Object.keys(it.other || {}), ...Object.keys(it.exchanged), ...Object.keys(it.upgraded), ...Object.keys(it.compounded)]);
 		const off = [];
 		for (const k of names) {
 			const c = it.compounded[k] || { ok: 0, fail: 0 };
-			const e = (it.looted[k] || 0) + sum(it.received[k]) + ((it.bought[k] && it.bought[k].q) || 0) + ((sb[k] && sb[k].q) || 0) + (it.mluck_dupes[k] || 0) + (it.crafted[k] || 0) + (it.from_exchange[k] || 0) + ((it.other || {})[k] || 0)
-				- (it.consumed[k] || 0) - sum(it.sent[k]) - ((it.sold[k] && it.sold[k].q) || 0) - ((ss[k] && ss[k].q) || 0) - (it.exchanged[k] || 0) - ((it.upgraded[k] && it.upgraded[k].lost) || 0) - 2 * c.ok - 3 * c.fail;
+			const e = (it.looted[k] || 0) + sum(it.received[k]) + ((it.bought[k] && it.bought[k].q) || 0) + ((sb[k] && sb[k].q) || 0) + (swIn[k] || 0) + (it.mluck_dupes[k] || 0) + (it.crafted[k] || 0) + (it.from_exchange[k] || 0) + ((it.other || {})[k] || 0)
+				- (it.consumed[k] || 0) - sum(it.sent[k]) - ((it.sold[k] && it.sold[k].q) || 0) - ((ss[k] && ss[k].q) || 0) - (swOut[k] || 0) - (it.exchanged[k] || 0) - ((it.upgraded[k] && it.upgraded[k].lost) || 0) - 2 * c.ok - 3 * c.fail;
 			if (e !== (it.held[k] || 0)) off.push(`${k} held ${it.held[k] || 0} flows ${e}`);
 		}
 		ok(!off.length, `${n} items held = flows (${names.size} items)`, off.join(", "));

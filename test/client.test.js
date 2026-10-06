@@ -149,3 +149,47 @@ require(${JSON.stringify(path.join(__dirname, "..", "sim", "client_worker.js"))}
 		await sim.close();
 	}
 });
+
+test("a failing hook of chronal's (its measuring code around a game function) is reported, not swallowed: once on the console, counted in the snapshot's hook_errors and notes.chronal; CHRONAL_STRICT_HOOKS=1: the process exits 1", { skip, timeout: 120000 }, async () => {
+	const sim = await createSim({ root: ROOT, seed: 1, threads: true, live: { dir: tmp(), tag: "hookerr" } }),
+		warn = console.warn,
+		said = [],
+		exit0 = process.exitCode,
+		strict0 = process.env.CHRONAL_STRICT_HOOKS;
+	try {
+		process.env.CHRONAL_STRICT_HOOKS = "1";
+		console.warn = (...a) => said.push(a.join(" "));
+		// (a game function the hook wraps that changed: here the measuring code itself throws)
+		sim.live.open = () => {
+			throw new Error("the game changed");
+		};
+		const c = sim.addCharacter({ name: "Hook1", type: "ranger", code: "setInterval(() => move(character.x + (Math.random() < 0.5 ? 10 : -10), character.y), 500);", fps: 10 });
+		await sim.until(async () => sim.halted || (await c.query("!!(character && code_active)")), 60000);
+		await sim.run(20000);
+		const snap = sim.live.peek();
+		assert.ok(snap.hook_errors.instance_block_action && snap.hook_errors.instance_block_action.n > 1, JSON.stringify(snap.hook_errors));
+		assert.match(snap.hook_errors.instance_block_action.first, /the game changed/);
+		assert.match(snap.notes.chronal, /hook instance_block_action failed \d+x: Error: the game changed/);
+		assert.equal(said.filter((l) => /chronal's hook instance_block_action failed/.test(l)).length, 1, "printed once");
+		assert.equal(process.exitCode, 1);
+		assert.equal(sim.failed, null, "the run itself goes on");
+	} finally {
+		console.warn = warn;
+		process.exitCode = exit0;
+		if (strict0 === undefined) delete process.env.CHRONAL_STRICT_HOOKS;
+		else process.env.CHRONAL_STRICT_HOOKS = strict0;
+		await sim.close();
+	}
+});
+
+test("the fake socket.io server: to(ids) emits to those sockets only (a room per socket id, as emit_fanout sends), a named room reaches nobody; engine takes the game's per-tick flush hook (#1)", () => {
+	const { ServerIO } = require("../sim/fake_io");
+	const io = new ServerIO({}, "/socket.io/"),
+		got = [];
+	for (const id of ["a", "b", "c"]) io.sockets.set(id, { emit: (e, d) => got.push([id, e, d]) });
+	assert.equal(io.to(["a", "c"]).emit("x", 1), true);
+	io.to("b").emit("y", 2);
+	io.to("roulette").emit("bet", 3);
+	assert.deepEqual(got, [["a", "x", 1], ["c", "x", 1], ["b", "y", 2]]);
+	assert.doesNotThrow(() => io.engine.on("connection", () => {}));
+});

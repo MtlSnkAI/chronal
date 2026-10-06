@@ -9,7 +9,7 @@ shows each one, where it comes from, and edits `config/local.json` (applied when
 | `al_root` | `runtime/app` | the game the sim runs (`chronal install`'s copy) |
 | `upstream` | `upstream` | where `chronal install` keeps the game's repos |
 | `live_dir` | `live` | run snapshots: what `chronal run` writes and the dashboard reads |
-| `g_data` | `null` | a game data file (JSON, or a `var G = {...}` script); none: the newest `cache/G-<version>.json` |
+| `g_data` | `null` | a game data file (JSON, or a `var G = {...}` script); none: the installed game's `cache/G-<version>-<game>.json`, else the newest `cache/G-*.json` |
 | `al_token_file` | `config/al_token` | a file whose first line is your account's API token (`chronal pull`, Pull now); the dashboard's Settings saves it there (mode 0600, gitignored) |
 | `pulls_dir` | `pulls` | `chronal pull`'s pulls |
 | `players_dir` | `players` | other players' public pages (`chronal pull --player`) |

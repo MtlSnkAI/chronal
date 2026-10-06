@@ -1,5 +1,5 @@
 {
-  "game": { "dir": "adventureland_mongodb", "url": "https://github.com/kaansoral/adventureland_mongodb", "commit": "90052162eb3ebda36c893e1eb4af643913c8f984" },
+  "game": { "dir": "adventureland_mongodb", "url": "https://github.com/kaansoral/adventureland_mongodb", "commit": "987831288c40928b959bc06a626a4d67cd0c98ca" },
   "common": { "dir": "common_engine", "url": "https://github.com/kaansoral/common_engine", "commit": "fa74fabf5d3782503712621e037bfb934ecb8439" },
   "config": { "dir": "adventureland_secretsandconfig", "url": "https://github.com/kaansoral/adventureland_secretsandconfig", "commit": "6b3493be30abe367cfaf879a2d5ad370742e0866" }
 }

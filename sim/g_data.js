@@ -1,6 +1,7 @@
 "use strict";
-// The game's G as a browser gets it from the server's /data.js, to cache/G-<G.version>.json (plain JSON). config.js
-// gData() picks the newest one (the dashboard's item tooltips, tools that read G) when no g_data is configured.
+// The game's G as a browser gets it from the server's /data.js, to cache/G-<G.version>-<game commit>.json (plain JSON;
+// the game's version counter alone stays the same across game commits). config.js gData() picks the installed game's
+// (the dashboard's item tooltips, tools that read G) when no g_data is configured; chronal install writes it.
 // Boots the server of config().al_root once (a few seconds): the sim's client G (clientInfo: the design files as main.js
 // evaluates them, the server's version and map geometry).
 //   chronal g-data
@@ -16,12 +17,13 @@ const main = () => (async () => {
 	const info = clientInfo(sim.server),
 		json = info.gJson,
 		dir = path.join(__dirname, "..", "cache"),
-		file = path.join(dir, `G-${info.version}.json`),
+		game = require("../lib/install").gameCheck(root).game,
+		file = path.join(dir, `G-${info.version}${game ? "-" + game : ""}.json`),
 		tmp = file + "." + process.pid + ".tmp";
 	fs.mkdirSync(dir, { recursive: true });
 	fs.writeFileSync(tmp, json);
 	fs.renameSync(tmp, file);
-	console.log(`${file} (G version ${info.version}, ${(json.length / 1e6).toFixed(1)} MB, from ${root})`);
+	console.log(`${file} (G version ${info.version}${game ? ", game " + game : ""}, ${(json.length / 1e6).toFixed(1)} MB, from ${root})`);
 	await sim.close();
 	process.exit(0);
 })().catch((e) => {

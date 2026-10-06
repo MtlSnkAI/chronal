@@ -61,10 +61,27 @@ class ServerIO extends Emitter {
 		this.path = path;
 		this.JSON = json || JSON;
 		this.sockets = new Map();
+		// engine.io: the game (from 98783128) defers each connection's flush to the end of the tick
+		// (coalesce_socket_writes); here every packet of a tick leaves at that tick's time anyway: no connections
+		this.engine = { on() {}, off() {} };
 	}
 	emit(e, ...a) {
 		for (const s of this.sockets.values()) s.emit(e, ...a);
 		return true;
+	}
+	/** socket.io rooms: every socket is in the room named by its id (emit_fanout sends to id lists); the game joins no
+	 * named room (its to("roulette") reaches nobody, live too) */
+	to(rooms) {
+		const ids = Array.isArray(rooms) ? rooms : [rooms];
+		return {
+			emit: (e, ...a) => {
+				for (const id of ids) {
+					const s = this.sockets.get(id);
+					if (s) s.emit(e, ...a);
+				}
+				return true;
+			},
+		};
 	}
 	of() {
 		return this;
@@ -436,4 +453,4 @@ class Hub {
 	}
 }
 
-module.exports = { Hub, Link, ServerSocket, RemotePeer, RemoteHub, Gate, spinWhile };
+module.exports = { Hub, Link, ServerIO, ServerSocket, RemotePeer, RemoteHub, Gate, spinWhile };
