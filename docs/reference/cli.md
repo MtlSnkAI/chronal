@@ -199,8 +199,8 @@ Options:
 
 A chronal release moves the pin: its changelog says so, and runs on the new game don't group with earlier ones
 (snapshots record the game's commit, `versions.game`, and it is part of the setup key). A weekly check (the repo's
-GitHub Actions, `.github/workflows/upstream.yml`) runs the tests on upstream's newest game and opens an issue when they
-fail.
+GitHub Actions, `.github/workflows/upstream.yml`) runs the tests on upstream's newest game. When they fail it opens a
+new issue each week (label `upstream`) and closes the week before's; when they pass it closes the open one.
 
 ## chronal pull
 
