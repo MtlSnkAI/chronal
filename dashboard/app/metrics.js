@@ -517,7 +517,9 @@ export function settingsOf(w) {
 		else out[p] = JSON.stringify(o);
 		return out;
 	};
-	if (w.setup) { const s = setupOf(w); if (s === undefined) return undefined; if (s) { const { resolved, source, ...rest } = s; return flat(rest, "", {}); } }
+	// (a run and world setting its setup file leaves out: the default, as the setup format reads it; api/control)
+	const D = S.cst && S.cst.setup_defaults;
+	if (w.setup) { const s = setupOf(w); if (s === undefined) return undefined; if (s) { const { resolved, source, ...rest } = s; if (D) (rest.run = { ...D.run, ...rest.run }), (rest.world = { ...D.world, ...rest.world }); return flat(rest, "", {}); } }
 	const r = w.run || {};
 	return flat({ script: r.script, roster: (w.roster || []).map((c) => ({ name: c.name, type: c.type, level: c.level, role: c.role, code: c.code })), run: { seed: seedOf(w), duration_ms: r.duration_ms, warmup_ms: r.warmup_ms }, world: { age_ms: wageOf(w) }, strategy: w.strategy }, "", {});
 }
@@ -559,7 +561,7 @@ export function changes(a, b) {
 		else if ((m = /^characters\[[^\]]+\]\.state\.items\[([^\]]+)\]/.exec(k))) add("inv|" + who, { kind: "inv", who, items: new Set() }).items.add(/^\d+$/.test(m[1]) ? "slot " + m[1] : m[1]);
 		else if (/^characters\[[^\]]+\]\.at\./.test(k)) add("at|" + who, { kind: "at", who, from: atOf(a, who), to: atOf(b, who) });
 		else if ((m = /^accounts\.([^.]+)\.bank\./.exec(k))) add("bank|" + m[1], { kind: "bank", who: m[1], n: 0 }).n++;
-		else add(k, { kind: "set", key: k, who, from: jp(a[k]), to: jp(b[k]) });
+		else if (valTxt(k, jp(a[k])) !== valTxt(k, jp(b[k]))) add(k, { kind: "set", key: k, who, from: jp(a[k]), to: jp(b[k]) }); // (not two that read the same)
 	}
 	const rank = { who: 0, slot: 1, code: 2, inv: 3, at: 4, set: 5, bank: 6 };
 	return [...out.values()].sort((x, y) => rank[x.kind] - rank[y.kind]);

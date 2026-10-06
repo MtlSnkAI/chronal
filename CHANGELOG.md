@@ -10,6 +10,12 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Compare no longer lists settings a run's setup file from an older version leaves out as changes (world.anniversary
+  true -> none, world.ugrace_fixed false -> none): a setting left out reads as its default. A change whose two sides
+  read the same (world.ugrace none -> none) is not listed.
+
 ## [0.7.0] - 2026-10-06
 
 ### Added

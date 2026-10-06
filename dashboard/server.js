@@ -618,7 +618,9 @@ function createDashboard({ dir, appDir, root = ROOT, host = "localhost", viewerI
 	}
 	function controlInfo() {
 		const ws = worlds();
-		return { viewer: { up: viewer.up() }, sims: threads(ws), launches: [...launches].reverse() };
+		// setup_defaults: a setup's run and world settings when it leaves them out (a run's setup file from before a
+		// setting existed lacks it: Compare reads it as the default, not as a change)
+		return { viewer: { up: viewer.up() }, sims: threads(ws), launches: [...launches].reverse(), setup_defaults: { run: SETUP.RUN_DEFAULTS, world: SETUP.WORLD_DEFAULTS } };
 	}
 
 	// the metrics' settings (the headline, the columns) and the Data tab's panels for every page on this live dir
