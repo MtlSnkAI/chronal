@@ -109,7 +109,8 @@ In run order (it seeds the client threads).
 | `online` | `true` | `false`: on its account but not in game at the start; CODE may start it (Switching characters, below) |
 
 At most 3 characters and 1 merchant per account in game at the start, and at most 3 besides merchants in all (the
-game's limits per account and per IP: a run's characters all play from one). Their pages log in in setup order, at
+game's limits per account and per IP: a run's characters all play from one; a Steam- or MAS-linked account's fighters
+may be 36 from one IP, 3 per link). Their pages log in in setup order, at
 most 5 not in game at once: the server disconnects an IP's other pages when more than 5 of its sockets have no
 character yet, so more than 5 online characters start a few game seconds apart, as a browser's pages load on live.
 
@@ -122,7 +123,15 @@ character yet, so more than 5 online characters start a few game seconds apart, 
   starter's whole. With `from`, the gear is the export's (or the given `slots`) and nothing else: a starter slot it
   doesn't list starts empty.
 - `skin`, `cx` (cosmetics `{ <place>: <cosmetic> }`): its looks, given or the export's; else the class's default look.
-- Never taken from an export: conditions, the merchant stand, the upgrade queue.
+- `p`: its server-side state, which live never shows (modelling): `ugrace`, `cgrace` (15 numbers each: its upgrade and
+  compound grace per level), `ograce`, `stats` (`{ monsters, monsters_diff, exchanges }`: the tracker's kill counts),
+  `achievements`, `ap`, `firstbuff` (the holiday spirit taken), `encouragement_reached80`, `first`, `first_drop`, `dt`,
+  `rewards`, `minutes`. Key by key over an export's tracker kill counts (the snippet exports them for a tracker holder).
+- `s`: its conditions at the start (`{ <condition>: { ms, ... } }`), e.g. an mluck.
+- A run's state export (`chronal run`'s `<id>.state/`, [state exports](export.md)) gives more: its server state (`p`,
+  the stand included), its conditions and its hp, mp and death, as the run had them (`state.p` and `state.s` still go
+  over them).
+- Never taken from another export: conditions, the merchant stand. Never from any: the upgrade queue.
 
 **params** standard keys: `farm: { map, x, y, monsters: [types] }` (the example bot reads it), `path: [{ to: level,
 farm }]`; anything else passes through to the CODE.
@@ -133,6 +142,8 @@ farm }]`; anything else passes through to the CODE.
 |---|---|---|
 | `age_days` | `0` | 0 = created at the run's start, so New Player (x5 xp at first, 40 days in 10-day phases, ends at L80) as a new player gets it; N = created N days before; from 40 on no New Player |
 | `bank` | a new account's | `{ "from": <export> }` (its bank gold, packs, `unlocked` rooms and claimed `rewards`; other keys are left out, with a warning) or `{ "gold": 5000, "items0": [], ..., "unlocked": { "bank_b": true }, "rewards": [] }`; none: 1000 gold, two empty packs. A bank with packs in `bank_b` (items8-23) or `bank_u` (items24+) gets that room unlocked (an API pull's has no `unlocked`) |
+| `cash` | the bank export's account cash, else 0 | the account's shells (a whole number) |
+| `linked` | `null` (a web account) | `{ "platform": "steam" \| "mas", "pid": <id>, "newcomer": "auto" \| "claimed" }`: a Steam- or MAS-linked account (pid: a fixed 17 digits per account by default). Its logins have an auth id: the Newcomers' Blessing (+10 luck, gold and xp for 7 days, the first drop's 100k gold and items) for an account younger than 100 hours unless `"claimed"`, New Player and Lone Wolf grouped by the pid, and 3 x 12 fighters from one IP (3 per pid). A live export can't tell, so set it |
 | `storage` | `{}` | what the CODE's `get(key)` returns at the start; `null` unsets |
 | `local_storage` | `{}` | raw `localStorage` keys (text) |
 
@@ -226,6 +237,7 @@ clicks on a control panel while it runs.
 | `after` | fire after each firing of that step (`at` later) |
 | `character` | whose CODE / account; none: everyone's |
 | `storage`, `local_storage`, `code` | what it does |
+| `export` | a label: the run's state now to `<id>.state/<label>/` ([state exports](export.md)) |
 | `note` | free text |
 
 A character not in game, or whose CODE isn't running, is reported. Each firing goes to the snapshot's `steer`, and the

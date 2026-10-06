@@ -188,7 +188,7 @@ test("at most 3 besides merchants in game from one IP, whatever their accounts",
 			}
 		};
 	assert.deepEqual(problems([...chars(3), { name: "M1", class: "merchant", account: "a" }, { name: "M2", class: "merchant", account: "b" }]), []);
-	assert.deepEqual(problems(chars(4)), ["4 characters besides merchants in game at the start (C0, C1, C2, C3): the game lets 3 play from one IP, whatever their accounts, and a run's characters all play from one (put the others online: false)"]);
+	assert.deepEqual(problems(chars(4)), ["4 characters besides merchants in game at the start (C0, C1, C2, C3): the game lets 3 play from one IP (a Steam- or MAS-linked account's: 36, 3 per link), whatever their accounts, and a run's characters all play from one: C3 would be refused (put them online: false)"]);
 	assert.deepEqual(problems([...chars(3), { name: "C3", class: "ranger", account: "b", online: false }]), []);
 });
 
@@ -226,6 +226,33 @@ test("bank: from an export it keeps unlocked and rewards, notes the keys it leav
 	assert.deepEqual(warnings, ["account p: bank.from Pulled.json: shells not taken (gold, items<N>, unlocked, rewards are)", "account p: bank bank_b, bank_u unlocked (it has packs there)"]);
 	assert.equal(S.accountUser(resolved.accounts.p).info.unlocked.bank_u, true);
 	assert.throws(() => S.loadSetup(setupFile(d, { defaults: { code: { file: "farm.js" } }, accounts: { x: { bank: { unlocked: ["bank_b"] } } }, characters: [{ name: "X", class: "ranger", account: "x" }] }), { G }), /bank\.unlocked/);
+});
+
+test("server state: state.p (key by key over an export's tracker kill counts) and state.s reach the character's doc, account cash its user; bad values are problems", () => {
+	const d = layout();
+	write(d, "Tr.json", JSON.stringify({ ...EXP, character: { ...EXP.character, tracker: { monsters: { goo: 50 }, monsters_diff: { goo: 2 }, exchanges: { gem0: 1 }, max: {} } } }));
+	const ug = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+	const s = S.loadSetup(setupFile(d, {
+		defaults: { code: { file: "farm.js" } },
+		accounts: { a: { cash: 120 } },
+		characters: [
+			{ name: "T", class: "ranger", account: "a", state: { from: "Tr.json", p: { ugrace: ug, ograce: 3, firstbuff: true } } },
+			{ name: "U", class: "ranger", account: "a", state: { p: { stats: { monsters: { bee: 9 } } }, s: { mluck: { ms: 60000, f: "Me" } } } },
+		],
+	}), { G });
+	const { resolved } = S.resolveSetup(s, { G });
+	const [t, u] = resolved.characters;
+	assert.deepEqual(S.characterOver(t).info.p, { stats: { monsters: { goo: 50 }, monsters_diff: { goo: 2 }, exchanges: { gem0: 1 } }, ugrace: ug, ograce: 3, firstbuff: true });
+	assert.deepEqual(S.characterOver(u).info.p, { stats: { monsters: { bee: 9 } } }); // (the setup's stats replace an export's whole)
+	assert.deepEqual(S.characterOver(u).info.s, { mluck: { ms: 60000, f: "Me" } });
+	assert.equal(S.characterOver(t).info.s, undefined); // (an export's conditions are never taken)
+	assert.equal(S.accountUser(resolved.accounts.a).cash, 120);
+	const bad = (state, acc = {}) => assert.throws(() => S.loadSetup(setupFile(d, { defaults: { code: { file: "farm.js" } }, accounts: { a: acc }, characters: [{ name: "B", class: "ranger", account: "a", state }] }), { G }));
+	bad({ p: { ugrace: [1, 2] } });
+	bad({ p: { nope: 1 } });
+	bad({ p: { firstbuff: "yes" } });
+	bad({ s: { mluck: 5 } });
+	bad({}, { cash: -1 });
 });
 
 test("setupKey: the run knobs, name, strategy, notes and provenance don't count; states, CODE, world, party and the sim version do", () => {
@@ -394,8 +421,8 @@ test("storage and steering: accounts.<k>.storage and local_storage (null: unset)
 			"accounts.main.storage: { <key>: <a value, as get(key) returns it> }", "accounts.main.local_storage: { <localStorage key>: <text> }",
 			"accounts.two.local_storage.cstore_k: storage.k sets it too (set/get keep their values under \"cstore_<key>\")",
 			`steer[0].at: "x", a game time since the run's start (90s, 30m, 2h, or minutes)`, 'steer[0].character: "Z" is not a character of the setup', "steer[0].code: Unexpected token '('",
-			"steer[1]: nothing to do (storage, local_storage or code)", "steer[2]: { name, at | when (for, repeat, window) | after, character, storage, local_storage, code, note }",
-			"steer[3].what: unknown key (known: name, at, when, for, repeat, window, after, character, storage, local_storage, code, note)",
+			"steer[1]: nothing to do (storage, local_storage, code or export)", "steer[2]: { name, at | when (for, repeat, window) | after, character, storage, local_storage, code, export, note }",
+			"steer[3].what: unknown key (known: name, at, when, for, repeat, window, after, character, storage, local_storage, code, export, note)",
 		]);
 		return true;
 	});
@@ -526,4 +553,66 @@ test("start.js follows a page that the server disconnects at the start (its CODE
 	} finally {
 		await sim.close();
 	}
+});
+
+test("server state on a real sim: state.p reaches the server's player (grace, tracker kill counts), account cash its user", { timeout: 120000 }, async (t) => {
+	const { config } = require("../lib/config");
+	if (!fs.existsSync(path.join(config().al_root, "design"))) return t.skip(`no game at ${config().al_root}`);
+	const { startSetup } = require("../sim/start");
+	const d = layout();
+	const ug = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28];
+	const { resolved, bundles } = S.resolveSetup(S.loadSetup(setupFile(d, {
+		world: { threads: false }, accounts: { main: { cash: 33 } },
+		characters: [{ name: "Ran", class: "ranger", account: "main", state: { level: 30, p: { ugrace: ug, ograce: 5, stats: { monsters: { goo: 1234 } } } }, at: "main:0:0", code: { file: "farm.js" } }],
+	})));
+	const { sim } = await startSetup(resolved, bundles, { live: false });
+	try {
+		const p = Object.values(sim.server.players).find((x) => x.name === "Ran");
+		assert.deepEqual([...p.p.ugrace], ug); // (the server's realm: a copy to compare)
+		assert.equal(p.p.ograce, 5);
+		assert.equal(p.p.stats.monsters.goo, 1234);
+		const id = sim.accounts.get("main").user_id;
+		assert.equal(sim.env.db.collection(sim.env.kindOf(id)).store.get(id).cash, 33);
+	} finally {
+		await sim.close();
+	}
+});
+
+test("linked accounts: validated, a fixed pid per account; the per-IP rule lets a linked account's fighters past 3 (3 per link)", () => {
+	const d = layout();
+	const lo = (accounts, characters) => S.loadSetup(setupFile(d, { defaults: { code: { file: "farm.js" } }, accounts, characters }), { G });
+	const s = lo({ a: { linked: { platform: "steam" } }, b: { linked: { platform: "mas", pid: "m-1", newcomer: "claimed" } } }, [{ name: "A", class: "ranger", account: "a" }, { name: "B", class: "ranger", account: "b" }]);
+	assert.match(s.accounts.a.linked.pid, /^7656119\d{10}$/);
+	assert.equal(lo({ a: { linked: { platform: "steam" } } }, [{ name: "A", class: "ranger", account: "a" }]).accounts.a.linked.pid, s.accounts.a.linked.pid); // (fixed per account)
+	assert.deepEqual(s.accounts.b.linked, { platform: "mas", pid: "m-1", newcomer: "claimed" });
+	assert.throws(() => lo({ a: { linked: { platform: "epic" } } }, [{ name: "A", class: "ranger", account: "a" }]), /linked\.platform/);
+	// 3 web fighters on 2 accounts + 3 linked ones: allowed; a 4th web one after them: refused
+	const fighters = (n, acc) => Array.from({ length: n }, (_, i) => ({ name: acc + i, class: "ranger", account: acc }));
+	lo({ w: {}, x: {}, l: { linked: { platform: "steam" } } }, [...fighters(2, "w"), ...fighters(1, "x"), ...fighters(3, "l")]);
+	assert.throws(() => lo({ w: {}, x: {}, l: { linked: { platform: "steam" } } }, [...fighters(3, "l"), ...fighters(2, "w"), ...fighters(1, "x")]), /w0, w1, x0 would be refused/);
+});
+
+test("linked accounts on a real sim: a new Steam-linked account's first character gets the Newcomers' Blessing; claimed or web: none", { timeout: 180000 }, async (t) => {
+	const { config } = require("../lib/config");
+	if (!fs.existsSync(path.join(config().al_root, "design"))) return t.skip(`no game at ${config().al_root}`);
+	const { startSetup } = require("../sim/start");
+	const d = layout();
+	const one = async (linked) => {
+		const { resolved, bundles } = S.resolveSetup(S.loadSetup(setupFile(d, {
+			world: { threads: false }, accounts: { main: { ...(linked ? { linked } : {}) } },
+			characters: [{ name: "Ran", class: "ranger", account: "main", at: "main:0:0", code: { file: "farm.js" } }],
+		})));
+		const { sim } = await startSetup(resolved, bundles, { live: false });
+		try {
+			await sim.run(15000); // (the server's first-login loop: the auth mark, then dt.first, then the aura, a pass each)
+			const p = Object.values(sim.server.players).find((x) => x.name === "Ran");
+			return { first: p.p.first, blessing: !!(p.paura && p.paura.newcomersblessing), auth: p.auth_id || null };
+		} finally {
+			await sim.close();
+		}
+	};
+	const steam = await one({ platform: "steam", pid: "76561190000000001" });
+	assert.deepEqual(steam, { first: true, blessing: true, auth: "76561190000000001" });
+	assert.deepEqual(await one({ platform: "steam", pid: "76561190000000002", newcomer: "claimed" }), { first: false, blessing: false, auth: "76561190000000002" });
+	assert.deepEqual(await one(null), { first: undefined, blessing: false, auth: null });
 });

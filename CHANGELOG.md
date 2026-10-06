@@ -10,6 +10,26 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-06
+
+### Upgrading
+
+- `chronal run` now writes every character's state at the end of a run, to `<id>.state/end/` beside the snapshot.
+  `--no-export` skips it, `--export DIR` writes it elsewhere.
+
+### Added
+
+- State exports and `chronal continue`: an export holds each character's exact state (raw items and gear, server-side
+  state, the whole bank, shells, link, age, the pages' storage). The dashboard's Export state and a steering entry
+  write one while a run goes, and the snapshot lists them (schema 2.3); `chronal continue <id>` makes the next stage's
+  setup from one, `--run` runs it. ([export](docs/reference/export.md))
+- Setups set a character's server-side state: `state.p` (upgrade grace, tracker kill counts, achievements, first-time
+  flags) and `state.s` (conditions), and an account's shells (`accounts.<k>.cash`). An export's tracker counts are
+  imported, so their stat bonuses come along; `chronal pull` keeps the shells.
+  ([setup](docs/reference/setup.md#characters))
+- Steam- and Mac App Store-linked accounts (`accounts.<k>.linked`): the Newcomers' Blessing and first-drop bonus,
+  encouragement grouped by the link, and the linked per-IP allowance. ([setup](docs/reference/setup.md#accounts))
+
 ## [0.1.1] - 2026-10-06
 
 ### Fixed
@@ -39,6 +59,7 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 The first release: Adventure Land's real game server and clients on a virtual clock, running your CODE unmodified and
 headless at 100x and more, with a dashboard, replays, and fidelity checks against live.
 
-[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.1.1...develop
+[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.2.0...develop
+[0.2.0]: https://github.com/MtlSnkAI/chronal/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/MtlSnkAI/chronal/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/MtlSnkAI/chronal/releases/tag/v0.1.0

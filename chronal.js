@@ -9,6 +9,9 @@ Run
                             run a setup (a JSON file: the characters, their CODE and start states, the party,
                             the run's length) in the sim: the game's own server and client, headless, as fast as
                             the CPU allows (chronal run --help: its options)
+  continue <run id> [--label end] [--duration D] [--at end|spawn] [--reseed ACCOUNT] [--run [-- run options]]
+                            a setup that goes on from a run's state export (each character's gear, items,
+                            bank and server state, the world's clock): long progressions as stages
   example                   an annotated setup to start from: chronal example | grep -v '^\\s*//' > my.json
   new ...                   compose a setup (pulls, CODE sets, templates; chronal new --help)
 
@@ -35,6 +38,7 @@ const cmd = args.shift() || "help";
 const COMMANDS = {
 	help: () => console.log(HELP),
 	run: () => require("./sim/run").main(args),
+	continue: () => require("./lib/continue").cli(args),
 	example: () => process.stdout.write(require("./lib/example").example()),
 	new: () => require("./lib/compose").cli(args),
 	dash: () => require("./dashboard/server").cli(args),

@@ -1,10 +1,10 @@
-# Live snapshot schema v2.2
+# Live snapshot schema v2.3
 
 What a run writes into a live dir while it runs, and what the dashboard (`dashboard/server.js`) and
 `tools/live_check.js` read. `sim/live.js` writes it for every `chronal run` run (the live dir: `--live DIR`, else
 config `live_dir`; `--no-live`: none).
 
-A snapshot says `schema: 2, schema_minor: 2`. The input of a run, the run setup (`chronal-setup/1`), is described in
+A snapshot says `schema: 2, schema_minor: 3`. The input of a run, the run setup (`chronal-setup/1`), is described in
 docs/reference/setup.md; `chronal example` prints an annotated one.
 
 ## 1. Files in a live dir
@@ -16,6 +16,7 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `<id>.items.ndjson` | the items' events (section 8, below the grid) | a line per loot, upgrade, compound, handover from the base on |
 | `<id>.setup.json` | the resolved setup of the run (section 9) | once, at the start |
 | `<id>.ctl` | the dashboard's requests to the run (section 4) | by the dashboard; removed by the run when it ends |
+| `<id>.state/<label>/<Name>.json`, `index.json` | the run's state exports ([state exports](export.md)): `end` at its end, others on request | whole, when written |
 | `<id>.rec/<name>.rec.gz`, `.rec.idx` | a character's replay recording (`chronal run --record`; docs/reference/recording.md) | gzip members of ~30 game s as the run goes, an index line per member; not part of the snapshot (the dashboard lists them as `rec`) |
 | `code/<sha16>.json`, `code/<sha16>.js` | the CODE store (section 9) | once per content, shared by the dir's runs |
 
@@ -58,7 +59,7 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `versions` | `{ sim, code, code_hash }`: git version of the simulator (`<commit>[+<diff hash>]`: the last commit of the files that change what a run does, and a hash of their uncommitted diff; `sim/`, `lib/` and `codes/` but `sim/g_data.js`, `lib/compose.js`, `lib/pull.js`, `lib/example.js` and `lib/install.js`), git version of the first character's CODE directory ("?" outside a repo; a run without a setup: null), hash over every character's CODE (section 9) |
 | `setup` | `{ format, file, name, from, hash }` (section 9); absent for runs without a setup |
 | `setup_key` | hash of what defines the run (section 9: the setup without its run knobs, name, strategy and notes, plus the simulator version; a run without a setup: null): runs of one setup with other seeds or durations share it |
-| `schema`, `schema_minor` | `2`, `2` |
+| `schema`, `schema_minor` | `2`, `3` |
 | `precision` | how each family was measured (below) |
 | `history_cols` | column names of the history rows (section 7) |
 | `roster` | the run's characters in run order (section 5) |
@@ -79,6 +80,7 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 | `players` | one entry per character in game (section 6) (fighters by name, then the merchant) |
 | `notes` | runner notes: `chronal` (a CODE getter the sim stopped calling, below) |
 | `steer` | the setup's steering, each firing (docs/reference/setup.md): `[{ t, i, name?, why, at, character, what, note?, did, errors }]`; `t` game s since the base, `i` its step's index in the setup's `steer`, `why` what fired it (`"at 20m"`, `"when <condition>"`, `"30s after boss"`), `at` the setup's, `character` null for every one, `what` its keys and values or CODE as a line, `did` (`"storage <account>"`, `"code <name>"`), `errors` what it couldn't (`"<name>: not in game"`, `"<name>: its CODE is not running"`, a thrown error's message); `[]` without steering; a time fires at its exact game time, a condition on the `run.check` grid (`start.js steerer`) |
+| `state` | the run's state exports ([state exports](export.md)): `{ exports: [{ label, at, t, dir }], pending }`; `at` the world clock (ISO), `t` game s since the base, `dir` relative to the live dir; `pending` the label of one asked for and not written yet |
 | `banks` | each account's bank now: `{ <account>: { gold, free } }` (free: the empty slots of its packs); `{}` outside a setup's run; the server's copy (a mounted one inside the bank first) |
 
 **world**
