@@ -10,6 +10,24 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-06
+
+### Added
+
+- `world.ugrace` and `world.ugrace_fixed`: the server's upgrade grace per level (a number, a list or `{ level: n }`;
+  default 24 at every level, a brand-new realm's), optionally held at those values. A live realm's is usually far
+  lower, so a sim's upgrades succeed more often than live's unless a setup sets it.
+  ([setup](docs/reference/setup.md#world))
+- `world.anniversary`: the anniversary event on (the game server's default) or off. In a sim its baker and drops were
+  always on.
+- `world.seasons` entries take `from` and `to` (game times after the warm-up): seasons switch on and off as a run goes.
+  The snapshot's world lists `seasons_on` and `season_switches`; a state export records the seasons on and
+  `chronal continue` takes them.
+- `accounts.<k>.ip`: accounts with one label play from one address, other labels from others (default: every account
+  local, 127.0.0.1, as before). With different addresses a merchant gets trade xp from another account's buyer, and
+  the per-IP fighter limit counts per address. `chronal new` gives another player's account its own address.
+  ([setup](docs/reference/setup.md#accounts))
+
 ## [0.3.0] - 2026-10-06
 
 ### Upgrading
@@ -80,7 +98,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 The first release: Adventure Land's real game server and clients on a virtual clock, running your CODE unmodified and
 headless at 100x and more, with a dashboard, replays, and fidelity checks against live.
 
-[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.3.0...develop
+[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.4.0...develop
+[0.4.0]: https://github.com/MtlSnkAI/chronal/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MtlSnkAI/chronal/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MtlSnkAI/chronal/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/MtlSnkAI/chronal/compare/v0.1.0...v0.1.1
