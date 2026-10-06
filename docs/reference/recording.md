@@ -53,7 +53,8 @@ sent. The dashboard shows it on the run's page (Replay), and its charts seek it.
 - **The paths** the dashboard hands the viewer, on the dashboard's own port: `/replay/`, `/__rec/`, the character pages,
   the game's `/js/`, `/css/`, `/sounds/`, `/phrases/`, `/data.js`, the images the dashboard doesn't serve (not png,
   jpg or gif), and the API calls the page makes (`servers_and_characters`, `pull_chat`, `pull_chats`). The backend's
-  own address (`base_url`) in what it sends is made the dashboard's.
+  own address (`base_url`) in what it sends is made the dashboard's. The game's Google Analytics scripts (adventure.land's
+  visit counts) are left out of its pages, so a replay sends nothing to Google.
 - `/replay/<run id>/<name>[?t=|?v=][&base=][&max=][&speed=][&paused=1]` redirects to the character's game page
   `/character/<name>/in/US/I/?chronal_replay=<run id>`. The backend serves that page for any name; the viewer puts the
   time warp and the replay script in its head (404 for a run or name without a recording).

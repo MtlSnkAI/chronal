@@ -18,6 +18,8 @@ const fs = require("node:fs"),
 const { routes } = require("./replay");
 const { REAL_TIME_LIBS, realTimeWrap } = require("./timewarp");
 
+// the game's page tracks its visits (Google Analytics: analytics.js, then gtag): its scripts left out of a replay
+const ANALYTICS = /<script\b(?:(?!<\/script>)[\s\S])*?(?:google-analytics\.com|googletagmanager\.com)(?:(?!<\/script>)[\s\S])*<\/script>/gi;
 const FILES = /^\/(js|css|sounds|phrases)\/|^\/(data\.js|favicon\.ico)$/,
 	API = new Set(["/api/servers_and_characters", "/api/pull_chat", "/api/pull_chats"]),
 	PAGE = /^\/character\/[^/]+\/in\//;
@@ -101,7 +103,10 @@ function createViewer({ dir, appDir, idleMs = 5 * 60e3 }) {
 				let body = Buffer.concat(chunks).toString("utf8");
 				if (base) body = body.split(base).join(here);
 				if (REAL_TIME_LIBS.test(req.url)) body = realTimeWrap(body);
-				if (type.startsWith("text/html")) body = /<head[^>]*>/i.test(body) ? body.replace(/<head[^>]*>/i, (m) => m + html) : html + body;
+				if (type.startsWith("text/html")) {
+					body = body.replace(ANALYTICS, "");
+					body = /<head[^>]*>/i.test(body) ? body.replace(/<head[^>]*>/i, (m) => m + html) : html + body;
+				}
 				for (const k of ["content-length", "etag", "last-modified"]) delete out[k];
 				out["cache-control"] = "no-store";
 				// scripts and styles (as rewritten here): the browser keeps them and asks again each time
