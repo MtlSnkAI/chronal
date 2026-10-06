@@ -26,6 +26,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   tick) and `to()` (it sends to lists of sockets, and a roulette bet to a room): every real sim failed on the game
   from 98783128, and a roulette bet failed already on 90052162. Fix by @Thefonze74065
   ([#1](https://github.com/MtlSnkAI/chronal/issues/1)).
+- Angel's share of a chest's gold is measured on the game from 98783128 too: its `encouragement_loot` passes the
+  chest's result where it passed goldm, and every chest under Angel's aura counted as unmatched.
 
 ## [0.8.0] - 2026-10-06
 

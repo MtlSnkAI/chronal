@@ -733,11 +733,12 @@ class Live {
 				return orig.apply(this, arguments);
 			});
 		// a chest's encouragement gold (the receipts are gone after the call)
+		// (its second argument: goldm; from the game at 98783128 the opener's chest result, with goldm in it)
 		hook("encouragement_loot", (orig) =>
-			function (chest, goldm, looters) {
+			function (chest, gm, looters) {
 				let pre;
 				try {
-					pre = live.lootPre(S, chest, goldm);
+					pre = live.lootPre(S, chest, gm && typeof gm === "object" ? gm.goldm : gm);
 				} catch (e) {
 					live.hookErr("encouragement_loot", e);
 				}
