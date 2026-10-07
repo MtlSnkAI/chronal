@@ -17,6 +17,11 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   shipped. The New sim form's Events has an "anniversary" chip (as the game ships it; a click turns it the other way),
   `chronal new --anniversary on|off`; a run that sets it against the game's is flagged, and snapshots record the
   game's own (`world.anniversary_game`).
+- A sim's warnings and errors print once each per page, named (`[sim <name> page] ...`), with how many more at the
+  end, instead of every time: a CODE's error in a loop, or the game's "Weird resolve_deferred issue" for socket events
+  a CODE sent itself (one run printed 945 of them). The snapshot's game log keeps every one. The tests that cause
+  errors on purpose no longer print them (`createSim({ silent })`), and the weekly upstream report no longer lists
+  node's "failing tests:" heading as a failed test.
 
 ## [0.9.0] - 2026-10-06
 
