@@ -10,6 +10,13 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+### Changed
+
+- `smart_move` takes a little more game time: its search now spends ticks as on live (the fix below). Walks from main's
+  town, before -> after: nearby 6.7 -> 6.7 s, the squigtoads 25.0 -> 25.5 s, the cave 36.5 -> 36.5 s, the halloween map
+  72.8 -> 73.4 s (0-2%). A run whose CODE uses `smart_move` (directly or through a router) doesn't repeat an earlier
+  version's run of the same setup and seed exactly; compare runs of one version.
+
 ### Fixed
 
 - A character placed outside a map's walls (a setup's `at` such as `main:300:300`) hung the run at its first
