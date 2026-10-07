@@ -357,6 +357,21 @@ function pages(game, sim, state, list) {
 	};
 }
 
+/**
+ * smart_move's search (runner_functions.js bfs) stops for the tick once 40 ms have passed (500 ms on a hidden page):
+ * by Date, which doesn't move inside a synchronous loop on the virtual clock, so it searched to the end in one go (from
+ * outside a map's walls: forever, and the run stopped). Its slice here is that much time at a fixed rate instead, so the
+ * search spreads over the ticks as on live, the same every run. Replaced only in the version it was checked against.
+ */
+const BFS_NODES_PER_MS = 25, // the game's can_move fill measured at 22-29 steps per real ms (Node 24, one core)
+	BFS_TIMER = "var timer = new Date(),",
+	BFS_SLICE = "if (mssince(timer) > ((!parent.is_hidden() && 40) || 500)) return;";
+function sliceBfs(r) {
+	const src = exec(r, "typeof bfs === 'function' ? Function.prototype.toString.call(bfs) : ''");
+	if (!src.includes(BFS_TIMER) || !src.includes(BFS_SLICE)) return console.warn("[sim] the runner's bfs() changed: its search slice not replaced");
+	exec(r, "bfs = " + src.replace(BFS_TIMER, "var sim_nodes = 0,\n\t\ttimer = new Date(),").replace(BFS_SLICE, `if (++sim_nodes >= ${BFS_NODES_PER_MS} * ((!parent.is_hidden() && 40) || 500)) return;`), "client_host.js:bfs");
+}
+
 function startRunner(env, game, code, label, state) {
 	const r = makeWindow(env, {
 		upper: game,
@@ -367,6 +382,7 @@ function startRunner(env, game, code, label, state) {
 	r.console = game.console;
 	r.phrase = game.phrase;
 	for (const f of RUNNER_FILES) run(r, env.root, f);
+	sliceBfs(r);
 	exec(r, `(function () {
 		// runner_functions.js re-runs proxy() for every character property every 50ms; identical logic, O(1) membership.
 		var seen = new Set(character.properties);
@@ -398,5 +414,5 @@ function putStorage(st, entries) {
 	return st;
 }
 
-// (makeWindow, run, exec, RUNNER_FILES: for a host's own client thread script that builds its CODE runner itself)
-module.exports = { startClient, clientInfo, makeStorage, putStorage, makeWindow, run, exec, RUNNER_FILES };
+// (makeWindow, run, exec, sliceBfs, RUNNER_FILES: for a host's own client thread script that builds its CODE runner itself)
+module.exports = { startClient, clientInfo, makeStorage, putStorage, makeWindow, run, exec, sliceBfs, RUNNER_FILES };

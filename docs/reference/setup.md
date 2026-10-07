@@ -103,7 +103,7 @@ In run order (it seeds the client threads).
 | `account` | `"main"` | characters with the same account share its bank, age and storage |
 | `role` | by class | `dps`, `tank`, `healer`, `merchant` or `support`; else the CODE's (reporting.md), else priest healer, warrior and paladin tank, merchant merchant, the rest dps |
 | `fps` | `10` | the client's frame rate (1-60); 10 is about 2.5x faster than 60 and tracked level and xp closely in tests |
-| `at` | main's spawn | `"map:x:y"` or `{ map, x, y }` |
+| `at` | main's spawn | `"map:x:y"` or `{ map, x, y }`; a spot outside the map's walls (no player can walk there) fails the run at the start |
 | `state` | a new character | the start state (below) |
 | `code` | required | the CODE (below) |
 | `params` | `null` | data for the CODE, read from `self.chronal.params` |

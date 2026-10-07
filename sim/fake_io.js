@@ -351,6 +351,9 @@ class Gate {
 	 * @param {() => void} o.flush     post everything sent so far
 	 * @param {() => void} o.receive   take in everything the peers posted
 	 * @param {() => void} [o.check]   called while waiting long: throws if a peer is gone
+	 * @param {(slot: number) => string} [o.name]  a slot's thread, for the error when a peer stops making progress
+	 * @param {number} [o.patience]    real ms without the peers moving before that error (the server's is shorter, so
+	 *                                 the error names the thread that is stuck, not one waiting on the server)
 	 */
 	constructor(o) {
 		Object.assign(this, o);
@@ -360,6 +363,13 @@ class Gate {
 		this.p = this.read(o.self);
 		this.bound = -Infinity;
 		this.waited = 0; // ms blocked (spinning or asleep)
+		this.patience ??= 120000;
+	}
+	/** The error when the peers stopped moving: the ones furthest behind (stuck in one event: a synchronous loop). */
+	stalled() {
+		const low = Math.min(...this.peers.map((slot) => this.read(slot))),
+			who = this.peers.filter((slot) => this.read(slot) === low).map((slot) => (this.name ? this.name(slot) : `thread ${slot}`));
+		return new Error(`[sim] a thread stopped making progress: ${who.join(", ")} (no virtual time passed in ${Math.round(this.patience / 1000)} s of real time: stuck in one synchronous event, e.g. a loop in its CODE)`);
 	}
 	read(slot) {
 		BITS[0] = Atomics.load(this.prog, slot * (LINE / 8));
@@ -408,7 +418,7 @@ class Gate {
 			Atomics.store(i32, me + 6, 0);
 			if (r === "timed-out") {
 				if (this.check) this.check();
-				if (performance.now() - t0 > 120000) throw new Error("[sim] a thread stopped making progress");
+				if (performance.now() - t0 > this.patience) throw this.stalled();
 			}
 		}
 		Atomics.store(i32, me + 5, 0);

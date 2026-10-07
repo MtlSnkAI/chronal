@@ -187,6 +187,80 @@ function dateFreeMssince(S, clock) {
 }
 
 /**
+ * Is (x, y) outside the map's walls? A fill from it as smart_move searches (15 px steps, a player's base, the server's
+ * own can_move), nearest-spawn first: from a spot inside the walls it reaches a spawn (or fills a closed room); from
+ * one outside it runs past the map's bounds, so no player can get there, and a smart_move from there searches forever
+ * (in the sim: one synchronous search that never ends, the run stops). The first step past the bounds, else null
+ * (inside, or undecided after `limit` steps). Only decisive on a map whose spawns don't leak past its bounds themselves
+ * (closedMap: on game 2148cf25 test, dungeon0, cgallery and shellsisland do): every place a player gets to is reached
+ * from a spawn (doors and the transporter land on one). ~25 steps per real ms.
+ */
+const PLAYER_BASE = { h: 8, v: 7, vn: 2 }, // server.js dbase
+	FILL_STEPS = [[0, 15], [0, -15], [15, 0], [-15, 0]]; // runner_functions.js moves
+function outsideWalls(S, map, x, y, limit = 200000) {
+	const spawns = (S.G.maps[map] && S.G.maps[map].spawns) || [],
+		past = fillPast(S, map, [[x, y]], limit, spawns);
+	return past && closedMap(S, map) ? past : null;
+}
+// The fill from `starts` together, the step nearest a goal first (a binary heap): its first step past the map's
+// bounds, else null (it came within a step of a goal, filled everything, or ran `limit` steps)
+function fillPast(S, map, starts, limit, goals = []) {
+	const g = S.G.geometry[map];
+	if (!g || !Number.isFinite(g.min_x)) return null;
+	const out = (px, py) => px < g.min_x || px > g.max_x || py < g.min_y || py > g.max_y,
+		h = (px, py) => goals.reduce((m, [gx, gy]) => Math.min(m, Math.abs(px - gx) + Math.abs(py - gy)), Infinity),
+		seen = new Set(),
+		heap = [];
+	const push = (px, py) => {
+		const k = px + "," + py;
+		if (seen.has(k)) return;
+		seen.add(k);
+		const e = [goals.length ? h(px, py) : heap.length, px, py];
+		let i = heap.push(e) - 1;
+		while (i > 0 && heap[(i - 1) >> 1][0] > e[0]) (heap[i] = heap[(i - 1) >> 1]), (i = (i - 1) >> 1);
+		heap[i] = e;
+	};
+	const pop = () => {
+		const top = heap[0],
+			last = heap.pop();
+		if (heap.length) {
+			let i = 0;
+			for (;;) {
+				let c = 2 * i + 1;
+				if (c >= heap.length) break;
+				if (c + 1 < heap.length && heap[c + 1][0] < heap[c][0]) c++;
+				if (heap[c][0] >= last[0]) break;
+				(heap[i] = heap[c]), (i = c);
+			}
+			heap[i] = last;
+		}
+		return top;
+	};
+	for (const [x, y] of starts) push(x, y);
+	for (let n = 0; heap.length && n < limit; n++) {
+		const [d, cx, cy] = pop();
+		if (goals.length && d < 15) return null;
+		for (const [dx, dy] of FILL_STEPS) {
+			const nx = cx + dx,
+				ny = cy + dy;
+			if (seen.has(nx + "," + ny) || !S.can_move({ map, x: cx, y: cy, going_x: nx, going_y: ny, base: PLAYER_BASE })) continue;
+			if (out(nx, ny)) return { x: nx, y: ny };
+			push(nx, ny);
+		}
+	}
+	return null;
+}
+const closedMaps = new WeakMap();
+function closedMap(S, map) {
+	const m = closedMaps.get(S) || closedMaps.set(S, new Map()).get(S);
+	if (!m.has(map)) {
+		const spawns = (S.G.maps[map] && S.G.maps[map].spawns) || [];
+		m.set(map, spawns.length > 0 && !fillPast(S, map, spawns, 200000 * spawns.length));
+	}
+	return m.get(map);
+}
+
+/**
  * Opt-in approximation: monsters are skipped by the per-tick update (frozen in place; they still level up and respawn
  * as usual) when they're farther than `radius` from every player, and so is the box of their spawn area, and they're
  * inside it. Monsters of an area within reach still wander into view as they would live (large areas: arena, tortoises),
@@ -361,6 +435,13 @@ class Sim {
 			},
 		};
 		const { slots, cx, ...info } = over.info || {};
+		// a spot given (not a spawn): one outside the walls would hang the character's first smart_move
+		if (Number.isFinite(info.x) && Number.isFinite(info.y)) {
+			const map = info.map || "main",
+				spawn = G.maps[map] && G.maps[map].spawns.some((p) => p[0] === info.x && p[1] === info.y),
+				past = !spawn && outsideWalls(S, map, info.x, info.y);
+			if (past) throw new Error(`[sim] ${name}: ${map}:${info.x}:${info.y} is outside ${map}'s walls (no player can walk there, a smart_move from there never ends; a walk from it reached ${past.x},${past.y}, past the map's edge): pick a spot inside`);
+		}
 		deepMerge(character, { ...over, info });
 		if (slots) Object.assign(character.info.slots, JSON.parse(JSON.stringify(slots)));
 		if (cx) character.info.cx = JSON.parse(JSON.stringify(cx));
@@ -444,6 +525,10 @@ class ThreadedSim extends Sim {
 			},
 			receive: () => {
 				for (const w of ws) for (let m; (m = receiveMessageOnPort(w.data)); ) w.peer.receive(m.message);
+			},
+			name: (slot) => {
+				const w = ws.find((x) => x.index + 1 === slot);
+				return w ? `client thread ${w.name}` : `thread ${slot}`;
 			},
 			// a client thread that replied before reaching the end of the run failed
 			check: () => {
@@ -774,4 +859,4 @@ function setUgrace(server, v, fixed) {
 	S.ugrace = held;
 }
 
-module.exports = { createSim, roiOption, lockstepWindow, setUgrace };
+module.exports = { createSim, roiOption, lockstepWindow, setUgrace, outsideWalls };
