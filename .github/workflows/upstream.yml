@@ -69,6 +69,9 @@ jobs:
         shell: bash
         run: |
           game=$(node -p 'require("./runtime/installed.json").game.slice(0, 8)')
+          pinned=$(node -p 'require("./upstream.json").game.commit.slice(0, 8)')
+          if [ "$game" = "$pinned" ]; then msg="chronal's tests (\`develop\`) pass on the game's newest commit, \`adventureland_mongodb\` $game, which \`develop\` is pinned to."
+          else msg="chronal's tests (\`develop\`) pass on the game's newest commit, \`adventureland_mongodb\` $game: the pin ($pinned) can move to it in a release."; fi
           for n in $(gh issue list --label upstream --state open --json number --jq '.[].number'); do
-            gh issue close "$n" --comment "chronal's tests (\`develop\`) pass on the game's newest commit, \`adventureland_mongodb\` $game: the pin can move to it in a release."
+            gh issue close "$n" --comment "$msg"
           done

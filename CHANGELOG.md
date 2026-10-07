@@ -10,6 +10,11 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+### Fixed
+
+- The weekly upstream check's closing comment says when the game's newest commit is the one `develop` is already
+  pinned to, instead of suggesting to move the pin there.
+
 ## [0.10.0] - 2026-10-07
 
 ### Upgrading
