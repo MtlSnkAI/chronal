@@ -46,7 +46,7 @@ function haltOnSignals(sim, on) {
  * @param {number} [o.seed]            same seed + same CODE => same run
  * @param {number} [o.start]           epoch ms the world's clock starts at (default 2026-01-01T00:00Z: vclock.js)
  * @param {string[]} [o.seasons]       the server's season switches on (server_host.js startServer)
- * @param {boolean} [o.anniversary]    the anniversary event (default on, as the game server ships)
+ * @param {boolean} [o.anniversary]    the anniversary event on or off (default null: as the game server ships it)
  * @param {*} [o.ugrace]                the server's upgrade grace per level (null: a new realm's, 24 each; a number, a list,
  *                                     { <level>: n } over the 24s); o.ugrace_fixed: held there (a busy realm's steady state)
  * @param {boolean} [o.threads]        one thread per character, stepped in lockstep with the server (docs/explanation/sim.md)
@@ -80,7 +80,7 @@ async function createSim(o) {
 	if (o.quiet !== false) console.log = () => {};
 	let server;
 	try {
-		server = await startServer(env, { seasons: o.seasons || [], anniversary: o.anniversary !== false });
+		server = await startServer(env, { seasons: o.seasons || [], anniversary: o.anniversary ?? null });
 		server.__root = env.root; // clientInfo() reads the design files from here (what /data.js serves)
 		if (o.ugrace != null || o.ugrace_fixed) setUgrace(server, o.ugrace, !!o.ugrace_fixed);
 	} finally {

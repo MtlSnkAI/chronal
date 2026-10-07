@@ -221,7 +221,7 @@ function insertAfter(source, fnName, anchor, line) {
 
 // seasons: the seasons on from the boot (a setup's world.seasons with no start time), switched on as it boots (below);
 // anniversary: the anniversary event's switch
-async function startServer(env, { serverKey = "local", timeoutMs = 60000, seasons = [], anniversary = true } = {}) {
+async function startServer(env, { serverKey = "local", timeoutMs = 60000, seasons = [], anniversary = null } = {}) {
 	const prev = env.patch;
 	env.patch = (file, exports) => {
 		if (file.endsWith(`${path.sep}options.js`) && exports.servers && exports.servers[serverKey]) {
@@ -259,9 +259,11 @@ async function startServer(env, { serverKey = "local", timeoutMs = 60000, season
 		for (const s of Object.keys(blocks(env.root))) if (seasons.includes(s)) seasonOn(ctx, s, env.seasons, env.root);
 		return r;
 	};
-	// the anniversary event: on in the server's own events ("remains on until manually disabled"); off: its baker, gift
-	// and slice drops never come (the server checks it as it runs: anniversary_is_active)
-	ctx.events.anniversary = !!anniversary;
+	// the anniversary event: as the game ships it (events.anniversary; off since 06/10/26), or set: on (its baker, gift
+	// and slice drops), off (none: the server checks it as it runs, anniversary_is_active). chronal_anniversary_game:
+	// the game's own, for the snapshot
+	ctx.chronal_anniversary_game = !!ctx.events.anniversary;
+	if (anniversary != null) ctx.events.anniversary = !!anniversary;
 	const t0 = env.clock.now;
 	while (!(ctx.server && ctx.server.live) && env.clock.now - t0 < timeoutMs) await env.clock.run({ forMs: 100 });
 	if (!(ctx.server && ctx.server.live)) throw new Error("[sim] server did not go live");

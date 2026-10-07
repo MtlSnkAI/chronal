@@ -125,6 +125,7 @@ chronal new --chars Ranger,Priest --storage mode='"farm"' --steer '20m mode="bos
 | `--steer "AT[@NAME] KEY=VALUE"`, `--steer "AT[@NAME] run CODE"`, `--steer JSON` | steering steps (replace the template's list) |
 | `--until EXPR`, `--check-every 1s` | `run.until`, `run.check` |
 | `--start ISO`, `--season NAME`, `--event NAME@AT` | `world.start`, a season on, a daily or nightly forced at a game time (e.g. `goobrawl@20m`) |
+| `--anniversary on\|off` | `world.anniversary` (left out: as the game ships it) |
 | `--spawn JSON`, `--param NAME\|*=JSON` | a custom world's spawn (`world.spawns`, e.g. `'{"monster":"bigbird","at":"main:-200:300","hp":"endless"}'`); params merged into a character's (`*`: every one's), e.g. `'*={"farm":{"map":"main","x":-200,"y":300,"monsters":["bigbird"]}}'` |
 | `--sweep-gear-set NAME=A,B,...`, `--sweep-gear NAME:SLOT=A,B,...`, `--sweep-code-set A,B,...` | one setup per value (per combination), in a folder: a sweep. A set compared is worn in place of that character's `--gear-set` and `--gear` (`--sweep-gear` goes on top of it) |
 | `--duration`, `--warmup`, `--seed`, `--ping`, `--world-age` | run and world settings |

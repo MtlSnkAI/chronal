@@ -92,7 +92,7 @@ docs/reference/setup.md; `chronal example` prints an annotated one.
 - `age_ms`: game ms the world ran with no characters before they logged in (the setup's `world.age`, less for a run
   stopped during it; 0: they logged in at the boot).
 - `start`: the world's clock as it booted (ISO, UTC; the setup's `world.start`); `seasons`: the season switches it set;
-  `anniversary`: the anniversary event on; `ugrace`: the server's upgrade grace per level now; `seasons_on`: the seasons
+  `anniversary`: the anniversary event on; `anniversary_game`: as the game ships it (since 2.9); `ugrace`: the server's upgrade grace per level now; `seasons_on`: the seasons
   on now; `season_switches`: `[{ season, on, t }]`, the setup's schedule as it switched them (`t`: game s since the base).
 - `forced`: the events the setup forced, as they fired: `[{ event, at_ms, t }]` (`t`: game s since the base).
 - `events`: the dailies and nightlies seen on, each `{ from, to }`: game s since the base when a snapshot first and last

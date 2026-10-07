@@ -10,6 +10,14 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+### Fixed
+
+- The anniversary event follows the game: `world.anniversary` left out (`null`, the new default) is as the game ships
+  it (the game turned it off on 06/10/26), `true`/`false` set it. Before, chronal turned it on whatever the game
+  shipped. The New sim form's Events has an "anniversary" chip (as the game ships it; a click turns it the other way),
+  `chronal new --anniversary on|off`; a run that sets it against the game's is flagged, and snapshots record the
+  game's own (`world.anniversary_game`).
+
 ## [0.9.0] - 2026-10-06
 
 ### Upgrading

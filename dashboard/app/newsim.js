@@ -27,7 +27,7 @@ const drafts = new Map();
 const say = (text, bad) => html`<p class=${bad ? "nbad" : "hint"}>${text}</p>`;
 const nfFits = new Map(); // "class|slot|mainhand|offhand" -> [[item, of another class]]
 const NF_SEG = [["game", "In game"], ["offline", "Offline"], ["out", "Out"]];
-const nfFresh = () => ({ template: "", pull: "", players: [], acct: {}, roster: [], code: "", cnames: {}, store: {}, keys: [], steer: null, bld: null, until: "", compare: [], party: "auto", members: [], leader: "", pform: "code", duration: "30m", warmup: "", seed: "1", runs: "1", ping: "", wage: "", sweeps: [], name: "", missing: {}, open: null, start: "", seasons: [], events: [], spawns: [], farmSpawns: true });
+const nfFresh = () => ({ template: "", pull: "", players: [], acct: {}, roster: [], code: "", cnames: {}, store: {}, keys: [], steer: null, bld: null, until: "", compare: [], party: "auto", members: [], leader: "", pform: "code", duration: "30m", warmup: "", seed: "1", runs: "1", ping: "", wage: "", sweeps: [], name: "", missing: {}, open: null, start: "", seasons: [], anniversary: null, events: [], spawns: [], farmSpawns: true });
 // what the form's CODE is when none is picked: the template's, else the pull's, else the example bot (the built-in set)
 const nfDefCode = () => (nf.template ? "the template's" : NF.pulls.length ? "the pull's" : "the example bot");
 // (from the Accounts page: { pull: a pull's id, account: a crafted account's name, player: a public page's id })
@@ -96,7 +96,7 @@ function nfOpts() {
 		party: nf.party === "none" ? false : nf.party === "custom" && nf.members.length ? [nf.leader, ...nf.members.filter((n) => n !== nf.leader)].filter(Boolean).join(",") + "/" + nf.pform : undefined,
 		duration: nf.duration || undefined, warmup: nf.warmup || undefined, until: nf.until ? nf.until.trim() : undefined, check_every: nf.check ? nf.check.trim() : undefined, ping: nf.ping || undefined, world_age: nf.wage || undefined,
 		...nfWorldOut(),
-		start: nf.start ? nf.start + ":00Z" : undefined, seasons: nf.seasons.length ? nf.seasons : undefined, events: nf.events.some((e) => e.event && e.at.trim()) ? nf.events.filter((e) => e.event && e.at.trim()).map((e) => ({ event: e.event, at: e.at.trim() })) : undefined,
+		start: nf.start ? nf.start + ":00Z" : undefined, seasons: nf.seasons.length ? nf.seasons : undefined, anniversary: nf.anniversary ?? undefined, events: nf.events.some((e) => e.event && e.at.trim()) ? nf.events.filter((e) => e.event && e.at.trim()).map((e) => ({ event: e.event, at: e.at.trim() })) : undefined,
 	};
 	if (nf.code && nf.compare.length) o.sweep_code_set = [nf.code, ...nf.compare].join(",");
 	const sw = nf.sweeps.filter((x) => x.specs.length && x.slot !== "set"), sets = nf.sweeps.filter((x) => x.specs.length && x.slot === "set");
@@ -975,11 +975,19 @@ function when(v) {
 	return [html`<${KRow} label="Starts" id="nf-start"><input type="datetime-local" id="nf-start" step="60" value=${nf.start || S.default_start.slice(0, 16)} data-tip=${"the world's clock as it boots, UTC (the server's hour: UTC " + S.time_offset + " h, its night 0-5, dailies at " + S.dailies.join(" and ") + ", a nightly at " + S.nightlies.join(", ") + ", its time)"} onChange=${(e) => { nf.start = e.currentTarget.value; change(); }} /><span class="gu">UTC</span>
 			<span class="seg sm kdur" role="group" aria-label="Start presets">${presets.map(([x, l]) => html`<button type="button" aria-pressed=${nf.start === x} onClick=${() => { nf.start = x; change(); }}>${l}</button>`)}</span></${KRow}>`,
 		html`<${KRow} label=""><span class="gu">${span + (cs.length ? "; crosses " + cs.join("; ") : "; crosses no night, daily or nightly")}</span></${KRow}>`,
-		html`<${KRow} label="Events">${S.seasons.map((x) => html`<button type="button" class=${"chip kc" + (nf.seasons.includes(x) ? " on" : "")} aria-pressed=${nf.seasons.includes(x)} data-tip=${"the season " + x + " on (a server switch: its drops and monsters, from the start); not as on live now: flagged on the run"} onClick=${() => { const i = nf.seasons.indexOf(x); i < 0 ? nf.seasons.push(x) : nf.seasons.splice(i, 1); change(); }}>${x}</button>`)}
+		html`<${KRow} label="Events">${anniversaryChip(S)}${S.seasons.map((x) => html`<button type="button" class=${"chip kc" + (nf.seasons.includes(x) ? " on" : "")} aria-pressed=${nf.seasons.includes(x)} data-tip=${"the season " + x + " on (a server switch: its drops and monsters, from the start); not as on live now: flagged on the run"} onClick=${() => { const i = nf.seasons.indexOf(x); i < 0 ? nf.seasons.push(x) : nf.seasons.splice(i, 1); change(); }}>${x}</button>`)}
 			<button type="button" class="cb" data-tip="a daily or nightly started at a game time of the run (as the server's schedule starts them); not as on live: flagged on the run" onClick=${() => { nf.events.push({ event: (NF.schedule && NF.schedule.dailies_events[0]) || "goobrawl", at: "10m" }); change(); nfFocus('[data-nev="' + (nf.events.length - 1) + '"]'); }}>Force an event</button></${KRow}>`,
 		nf.events.map((e, i) => html`<${KRow} label=""><${Select} data-nev=${i} aria-label="The event" value=${e.event} onChange=${(x) => { e.event = x.currentTarget.value; change(); }}>${evs.map((x) => html`<option value=${x}>${x}</option>`)}</${Select}><span class="gu">at</span>
 			<input type="text" class="sn" value=${e.at} aria-label="At" data-tip="game time after the warm-up: 90s, 20m, 2h" onInput=${(x) => { e.at = x.currentTarget.value; nfPreview(); }} /><span class="gu">of the run</span><${IbX} what="force it no more" onClick=${() => { nf.events.splice(i, 1); change(); }} /></${KRow}>`)];
 }
+// the anniversary event: as the game ships it (api/new's anniversary_game) unless the run sets it the other way (not as
+// the game ships it: flagged on the run); a click turns it to the other state, again back to the game's
+const anniversaryChip = (S) => {
+	const game = S.anniversary_game, on = nf.anniversary ?? game;
+	if (game == null && nf.anniversary == null) return null;
+	const tip = "the anniversary event (its baker on main, gift and slice drops): " + (on ? "on" : "off") + (nf.anniversary == null ? ", as the game ships it" : ", not as the game ships it (" + (game ? "on" : "off") + "): flagged on the run") + "; a click turns it " + (on ? "off" : "on");
+	return html`<button type="button" class=${"chip kc" + (on ? " on" : "")} aria-pressed=${on} data-tip=${tip} onClick=${() => { const want = !on; nf.anniversary = want === game ? null : want; change(); }}>anniversary</button>`;
+};
 // ---- World: a custom world (world.spawns, sim/world_spawns.js; not as on live: flagged on the run): monsters of the
 // game's types at a spot, made by the server as its own: a dummy (endless hp), an arena (respawns); the example bot
 // farms them when asked (every character's params.farm: the spot and the types)
