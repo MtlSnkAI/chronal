@@ -23,6 +23,13 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
   errors on purpose no longer print them (`createSim({ silent })`), and the weekly upstream report no longer lists
   node's "failing tests:" heading as a failed test.
 
+### Changed
+
+- The game moves to 2148cf25 (`upstream.json`, 7 commits on): the anniversary event ended (off as the game ships it,
+  and so in runs that leave `world.anniversary` out), mail, bank results, cooperative drops and status effects fixed,
+  an offering without a scroll shows the grace it adds, upgrade and compound CODE results no longer wait for a redraw.
+  Without the anniversary a run can be faster: the example 124x -> 170x (with the event turned on, as before: 124x).
+
 ## [0.9.0] - 2026-10-06
 
 ### Upgrading
