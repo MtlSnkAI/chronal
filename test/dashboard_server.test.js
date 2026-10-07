@@ -125,7 +125,7 @@ test("w.ctl: stop, force and rerun per run; api/control", async () => {
 		assert.deepStrictEqual(c.viewer, { up: false });
 		assert.ok(c.sims.threads_max >= 1 && Array.isArray(c.launches));
 		// the settings a setup file may leave out (Compare reads them as these)
-		assert.deepStrictEqual([c.setup_defaults.world.anniversary, c.setup_defaults.world.ugrace, c.setup_defaults.world.ugrace_fixed, c.setup_defaults.run.duration], [true, null, false, "30m"]);
+		assert.deepStrictEqual([c.setup_defaults.world.anniversary, c.setup_defaults.world.ugrace, c.setup_defaults.world.ugrace_fixed, c.setup_defaults.run.duration], [null, null, false, "30m"]);
 	} finally {
 		await s.close();
 	}

@@ -10,6 +10,37 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-07
+
+### Upgrading
+
+- Run `chronal install`: it moves the game to 2148cf25 and writes its game data for the dashboard. Runs on it don't
+  group with earlier ones (the game is part of the setup key).
+- The anniversary event follows the game: off on 2148cf25, as on live. A setup that sets `world.anniversary: true`
+  keeps it on; the setup files of earlier runs say `true` (it was written out then), so rerunning one keeps the event.
+- `createSim({ silent: true })` / `startSetup(..., { silent: true })`: a program that drives the sim itself can keep its
+  warnings and errors out of the console.
+
+### Changed
+
+- The game moves to 2148cf25 (`upstream.json`, 7 commits on): the anniversary event ended (off as the game ships it,
+  and so in runs that leave `world.anniversary` out), mail, bank results, cooperative drops and status effects fixed,
+  an offering without a scroll shows the grace it adds, upgrade and compound CODE results no longer wait for a redraw.
+  Without the anniversary a run can be faster: the example 124x -> 170x (with the event turned on, as before: 124x).
+
+### Fixed
+
+- The anniversary event follows the game: `world.anniversary` left out (`null`, the new default) is as the game ships
+  it (the game turned it off on 06/10/26), `true`/`false` set it. Before, chronal turned it on whatever the game
+  shipped. The New sim form's Events has an "anniversary" chip (as the game ships it; a click turns it the other way),
+  `chronal new --anniversary on|off`; a run that sets it against the game's is flagged, and snapshots record the
+  game's own (`world.anniversary_game`).
+- A sim's warnings and errors print once each per page, named (`[sim <name> page] ...`), with how many more at the
+  end, instead of every time: a CODE's error in a loop, or the game's "Weird resolve_deferred issue" for socket events
+  a CODE sent itself (one run printed 945 of them). The snapshot's game log keeps every one. The tests that cause
+  errors on purpose no longer print them (`createSim({ silent })`), and the weekly upstream report no longer lists
+  node's "failing tests:" heading as a failed test.
+
 ## [0.9.0] - 2026-10-06
 
 ### Upgrading
@@ -241,7 +272,8 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 The first release: Adventure Land's real game server and clients on a virtual clock, running your CODE unmodified and
 headless at 100x and more, with a dashboard, replays, and fidelity checks against live.
 
-[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.9.0...develop
+[Unreleased]: https://github.com/MtlSnkAI/chronal/compare/v0.10.0...develop
+[0.10.0]: https://github.com/MtlSnkAI/chronal/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/MtlSnkAI/chronal/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/MtlSnkAI/chronal/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/MtlSnkAI/chronal/compare/v0.6.1...v0.7.0

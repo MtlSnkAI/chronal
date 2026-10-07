@@ -65,7 +65,7 @@ test("loadSetup: defaults filled, paths absolute; every problem listed at once",
 	const s = S.loadSetup(setupFile(d, { defaults: { code: { dir: "lib" } }, characters: [{ name: "Ran", class: "ranger" }] }), { G });
 	assert.equal(s.name, "setup");
 	assert.deepEqual(s.run, { duration: "30m", warmup: "0m", seed: 1, until: null, check: "1s", grid_ms: 30000 });
-	assert.deepEqual(s.world, { roi: null, threads: true, age: "0m", ping: 18, start: "2026-01-01T00:00:00Z", seasons: [], anniversary: true, ugrace: null, ugrace_fixed: false, events: [], spawns: [] });
+	assert.deepEqual(s.world, { roi: null, threads: true, age: "0m", ping: 18, start: "2026-01-01T00:00:00Z", seasons: [], anniversary: null, ugrace: null, ugrace_fixed: false, events: [], spawns: [] });
 	// the world's clock, seasons and forced events checked
 	const w = (world, run) => { try { S.loadSetup(setupFile(d, { defaults: { code: { dir: "lib" } }, characters: [{ name: "Ran", class: "ranger" }], world, ...(run ? { run } : {}) }), { G }); return []; } catch (x) { return x.problems; } };
 	assert.deepEqual(w({ start: "2026-10-31T23:30Z", seasons: ["halloween"], events: [{ event: "goobrawl", at: "10m" }] }), []);
@@ -546,7 +546,7 @@ test("start.js follows a page that the server disconnects at the start (its CODE
 	const d = layout();
 	write(d, "dc.js", 'if (Date.now() < Date.parse("2026-01-01T00:00:05Z")) disconnect();');
 	const { resolved, bundles } = S.resolveSetup(S.loadSetup(setupFile(d, { world: { start: "2026-01-01T00:00:00Z" }, characters: [{ name: "Dc", class: "ranger", code: { file: "dc.js" } }] })));
-	const { sim, order, clients } = await startSetup(resolved, bundles, { live: false });
+	const { sim, order, clients } = await startSetup(resolved, bundles, { live: false, silent: true }); // (the game's disconnect(): its raw socket events)
 	try {
 		assert.ok(sim.clients.length > 1, "it disconnected and loaded again");
 		assert.equal(order[0], sim.clients[sim.clients.length - 1]);

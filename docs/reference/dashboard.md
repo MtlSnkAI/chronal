@@ -107,7 +107,8 @@ series makes it the baseline.
   Others' CODE to trust; Names; Fit;
 - Party; Run: duration, Seed and Runs (a run per seed from Seed up), Record a replay; Starts (the world's clock, UTC,
   with presets: the default, a daily or a nightly 10 minutes in, at night; and what the run's span crosses: night,
-  dailies, nightlies, when); Events (seasons on, a daily or nightly forced at a game time; flagged on the run's label);
+  dailies, nightlies, when); Events (the anniversary as the game ships it, or turned the other way; seasons on, a daily or nightly forced at a
+  game time; each flagged on the run's label);
   World (a custom world: A dummy, An arena, a row per spawn: monster, spot, count, level, endless hp, attack, armor,
   resistance, respawn, clear; the example bot farms them: every character's `params.farm`; flagged "custom world");
   Advanced: warm-up, ping, world age, Storage, Steering, Check every, Until.

@@ -151,6 +151,7 @@ export function runChips(w) {
 		const n = typeof x === "string" ? x : x.season, when = typeof x === "string" ? "" : (x.from ? " from " + x.from : "") + (x.to ? " to " + x.to : "");
 		c.push(chip("se|" + n + when, "the season " + n + " on" + (when || " from the start") + " (a server switch: its drops and monsters; not as on live now)", n + when, "lcw"));
 	}
+	if (typeof wd.anniversary_game === "boolean" && typeof wd.anniversary === "boolean" && wd.anniversary !== wd.anniversary_game) c.push(chip("an", "the anniversary event " + (wd.anniversary ? "on" : "off") + ", not as the game ships it (" + (wd.anniversary_game ? "on" : "off") + ")", "anniversary " + (wd.anniversary ? "on" : "off"), "lcw"));
 	if (wd.spawns && wd.spawns.length) c.push(chip("cw", "a custom world (not as on live): " + spawnsText(wd.spawns), "custom world", "lcw"));
 	for (const t of L.tk) {
 		if (/^ping /.test(t)) c.push(chip(t, "the round trip client-server in ms", t));

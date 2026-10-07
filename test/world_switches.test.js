@@ -1,5 +1,6 @@
 "use strict";
-// The world's switches a setup sets (world.*): the anniversary event (its baker on main, its drops) on or off.
+// The world's switches a setup sets (world.*): the anniversary event (its baker on main, its drops) as the game ships it,
+// on or off.
 //   node --test test/world_switches.test.js      (needs the game: config al_root)
 const test = require("node:test"),
 	assert = require("node:assert/strict"),
@@ -10,17 +11,34 @@ const { config } = require("../lib/config");
 const ROOT = config().al_root,
 	skip = !fs.existsSync(path.join(ROOT, "design")) && "no game at " + ROOT;
 
-test("the game server ships the anniversary on (a change upstream shows here)", { skip }, () => {
-	assert.match(fs.readFileSync(path.join(ROOT, "node", "server.js"), "utf8"), /anniversary:\s*true/);
+test("shippedAnniversary: the game's own events.anniversary (its node/server.js); null when it has none", () => {
+	const { shippedAnniversary } = require("../lib/schedule");
+	const d = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "anniversary-"));
+	try {
+		fs.mkdirSync(path.join(d, "node"));
+		for (const v of [true, false]) {
+			fs.writeFileSync(path.join(d, "node", "server.js"), `var x = { anniversary: ${!v} };\nvar events = {\n\tanniversary: ${v}, // a comment\n\t// SEASONS\n\tholidayseason: false,\n};\n`);
+			assert.equal(shippedAnniversary(d), v);
+		}
+		fs.writeFileSync(path.join(d, "node", "server.js"), "var events = {};\n");
+		assert.equal(shippedAnniversary(d), null);
+		assert.equal(shippedAnniversary(path.join(d, "none")), null);
+		if (!skip) assert.equal(typeof shippedAnniversary(ROOT), "boolean", "the installed game has it");
+	} finally {
+		fs.rmSync(d, { recursive: true, force: true });
+	}
 });
 
-for (const on of [true, false])
-	test(`world.anniversary ${on}: its baker on main and E.anniversary ${on ? "there" : "never"}`, { skip, timeout: 120000 }, async () => {
-		const sim = await createSim({ root: ROOT, seed: 1, threads: false, live: false, anniversary: on });
+// null: as the game ships it (off from 98783128's successor, 8be6dc34)
+for (const on of [null, true, false])
+	test(`world.anniversary ${on}: its baker on main and E.anniversary as ${on == null ? "the game ships it" : on ? "on" : "off"}`, { skip, timeout: 120000 }, async () => {
+		const want = on ?? require("../lib/schedule").shippedAnniversary(ROOT);
+		const sim = await createSim({ root: ROOT, seed: 1, threads: false, live: false, ...(on == null ? {} : { anniversary: on }) });
 		try {
 			await sim.run(3000);
-			assert.equal(!!sim.server.npcs.anniversary_baker, on);
-			assert.equal(!!sim.server.E.anniversary, on);
+			assert.equal(!!sim.server.npcs.anniversary_baker, want);
+			assert.equal(!!sim.server.E.anniversary, want);
+			assert.equal(sim.server.chronal_anniversary_game, require("../lib/schedule").shippedAnniversary(ROOT));
 		} finally {
 			await sim.close();
 		}

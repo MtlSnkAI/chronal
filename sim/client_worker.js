@@ -6,12 +6,17 @@ const fs = require("node:fs"),
 const { VirtualClock } = require("./vclock");
 const { RemoteHub, Gate, spinWhile } = require("./fake_io");
 const { startClient, makeStorage, putStorage } = require("./client_host");
-const { readMode, readStatus, readRole, guarded, logTap, LOG_TEXT, LOG_KEEP, STATUS_MS } = require("./report");
+const { readMode, readStatus, readRole, guarded, logTap, onceConsole, LOG_TEXT, LOG_KEEP, STATUS_MS } = require("./report");
 
 process.on("unhandledRejection", () => {}); // browsers only log these
 // A worker's stdout/stderr are flushed by its event loop, which doesn't turn during a run: write synchronously instead
-// (CODE errors and warnings would show up late or never).
-for (const [k, fd] of [["log", 1], ["info", 1], ["debug", 1], ["warn", 2], ["error", 2]]) console[k] = (...a) => void fs.writeSync(fd, format(...a) + "\n");
+// (CODE errors and warnings would show up late or never). Warnings and errors print once each (repeats counted, said at
+// the thread's stop: a CODE's error in a loop, the game's "Weird resolve_deferred issue" for socket events a page sent
+// itself); w.silent: none (the run's game log keeps them).
+for (const [k, fd] of [["log", 1], ["info", 1], ["debug", 1]]) console[k] = (...a) => void fs.writeSync(fd, format(...a) + "\n");
+const who = (w.fixture && w.fixture.name) || "?",
+	out = onceConsole((kind, text) => void fs.writeSync(2, (text.startsWith("[sim") ? text : `[sim ${who} page] ` + text) + "\n"), { silent: !!w.silent, label: who });
+for (const k of ["warn", "error"]) console[k] = (...a) => out.say(k, format(...a));
 const [lo, hi] = w.latencyRange;
 const clock = new VirtualClock({ start: w.start, seed: w.seed });
 // w.rec: a replay recording of this character (rec.js), { dir, name, append, wait } (its next session; its last one's
@@ -185,7 +190,7 @@ function serve() {
 			if (m.t === "q") reply({ value: state.query(m.expr) });
 			else if (m.t === "prof") reply({ value: profiler(m.on) });
 			else if (m.t === "rec_open") recorder && recorder.held && recorder.open(), reply({});
-			else if (m.t === "stop") return recorder && recorder.close(), reply({}), process.exit(0);
+			else if (m.t === "stop") return recorder && recorder.close(), out.flush(), reply({}), process.exit(0);
 		}
 	} catch (e) {
 		reply({ err: String((e && e.stack) || e) });

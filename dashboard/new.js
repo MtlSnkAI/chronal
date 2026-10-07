@@ -100,7 +100,7 @@ function newRuns(x) {
 			classes: Object.fromEntries(Object.entries(G.classes).map(([k, v]) => [k, { main_stat: v.main_stat || null }])),
 			token, pulling: !!pulling,
 			// the server's clock-driven events (lib/schedule.js): the New sim form's Starts and Events
-			schedule: (({ SCHEDULE, DAILIES, NIGHTLIES, SEASONS, DEFAULT_START }) => ({ ...SCHEDULE, dailies_events: DAILIES, nightlies_events: NIGHTLIES, seasons: SEASONS, default_start: DEFAULT_START }))(require("../lib/schedule")),
+			schedule: (({ SCHEDULE, DAILIES, NIGHTLIES, SEASONS, DEFAULT_START, shippedAnniversary }) => ({ ...SCHEDULE, dailies_events: DAILIES, nightlies_events: NIGHTLIES, seasons: SEASONS, default_start: DEFAULT_START, anniversary_game: shippedAnniversary(cfg().al_root) }))(require("../lib/schedule")),
 		}];
 	}
 

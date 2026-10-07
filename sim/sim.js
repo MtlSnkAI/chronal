@@ -7,6 +7,8 @@ const { VirtualClock } = require("./vclock");
 const { Hub, Link, RemotePeer, Gate, spinWhile } = require("./fake_io");
 const { makeEnv, seedMaps, startServer, insertAfter } = require("./server_host");
 const { startClient, clientInfo, makeStorage, putStorage } = require("./client_host");
+const { onceConsole } = require("./report");
+const { format } = require("node:util");
 
 let rejectionHandler = false;
 // round trip client<->server ms when a caller gives none (a setup's world.ping has the same default)
@@ -46,7 +48,7 @@ function haltOnSignals(sim, on) {
  * @param {number} [o.seed]            same seed + same CODE => same run
  * @param {number} [o.start]           epoch ms the world's clock starts at (default 2026-01-01T00:00Z: vclock.js)
  * @param {string[]} [o.seasons]       the server's season switches on (server_host.js startServer)
- * @param {boolean} [o.anniversary]    the anniversary event (default on, as the game server ships)
+ * @param {boolean} [o.anniversary]    the anniversary event on or off (default null: as the game server ships it)
  * @param {*} [o.ugrace]                the server's upgrade grace per level (null: a new realm's, 24 each; a number, a list,
  *                                     { <level>: n } over the 24s); o.ugrace_fixed: held there (a busy realm's steady state)
  * @param {boolean} [o.threads]        one thread per character, stepped in lockstep with the server (docs/explanation/sim.md)
@@ -54,6 +56,9 @@ function haltOnSignals(sim, on) {
  *                                     takes 0.4-0.6x it, uniform. In threads mode the minimum is also the lockstep window.
  * @param {(rng,profile)=>number} [o.lateness]  timer lateness ms (default 1–3)
  * @param {boolean} [o.quiet]          silence server console spam (default true)
+ * @param {boolean} [o.silent]         print no warnings or errors (the sim's, its pages' and their CODE's: kept in
+ *                                     sim.messages and the game log); otherwise each distinct one once while the sim runs,
+ *                                     its repeats counted at close()
  * @param {{radius?:number, box?:number}} [o.roi]   opt-in: freeze monsters (and their spawn areas) out of every player's reach:
  *                                     farther than radius (900), or with `box`, outside the view box grown by that many px
  * @param {false|object} [o.live]     live snapshots: { dir, tag, every, setup: { resolved, bundles, from } } = on (live.js
@@ -80,7 +85,7 @@ async function createSim(o) {
 	if (o.quiet !== false) console.log = () => {};
 	let server;
 	try {
-		server = await startServer(env, { seasons: o.seasons || [], anniversary: o.anniversary !== false });
+		server = await startServer(env, { seasons: o.seasons || [], anniversary: o.anniversary ?? null });
 		server.__root = env.root; // clientInfo() reads the design files from here (what /data.js serves)
 		if (o.ugrace != null || o.ugrace_fixed) setUgrace(server, o.ugrace, !!o.ugrace_fixed);
 	} finally {
@@ -93,6 +98,23 @@ async function createSim(o) {
 	if (o.roi) enableROI(server, o.roi);
 	const Kind = o.threads ? ThreadedSim : Sim;
 	const sim = new Kind(clock, hub, env, server, { seed: o.seed ?? 1, latencyRange: [lo, hi] });
+	// this thread's warnings and errors while the sim runs (its own, the single-thread Sim's pages'): once each, or none
+	// (silent); the client threads do the same (workerData.silent); back as they were at close()
+	const e0 = console.error,
+		w0 = console.warn,
+		out = onceConsole((kind, text) => (kind === "warn" ? w0 : e0)(text), { silent: !!o.silent });
+	console.error = (...a) => out.say("error", format(...a));
+	console.warn = (...a) => out.say("warn", format(...a));
+	Object.assign(sim, { silent: !!o.silent, messages: out.messages });
+	const closeSim = sim.close.bind(sim);
+	sim.close = async () => {
+		try {
+			await closeSim();
+		} finally {
+			out.flush();
+			if (console.error !== e0) (console.error = e0), (console.warn = w0);
+		}
+	};
 	// opt-in live snapshots for the dashboard: read-only, outcomes unchanged
 	sim.live = require("./live").liveOf(sim, o.live);
 	if (sim.live || o.signals) haltOnSignals(sim, true);
@@ -468,7 +490,7 @@ class ThreadedSim extends Sim {
 		const before = this.workers.filter((x) => x.name === name),
 			rec = this.recDir ? { dir: this.recDir, name, append: before.length > 0, wait: before.some((x) => !x.stopped) } : null;
 		const thread = new Worker(worker || path.join(__dirname, "client_worker.js"), {
-			workerData: { ...extra, storage: this.storage[account] || {}, rec, root: this.env.root, start: this.clock.now, seed: this.seed * 1009 + index + 1, info: clientInfo(this.server), latencyRange: this.latencyRange, W: this.W, fixture: fx, code, fps, files, owned, byPage: !!byPage, ctrl, any: this.any.buffer, port: port2, data: data.port2, shared: this.shared, slot: index + 1, spin: this.spin, modes: modes && modes.port2 },
+			workerData: { ...extra, storage: this.storage[account] || {}, rec, root: this.env.root, start: this.clock.now, seed: this.seed * 1009 + index + 1, info: clientInfo(this.server), latencyRange: this.latencyRange, W: this.W, fixture: fx, code, fps, files, owned, byPage: !!byPage, silent: !!this.silent, ctrl, any: this.any.buffer, port: port2, data: data.port2, shared: this.shared, slot: index + 1, spin: this.spin, modes: modes && modes.port2 },
 			transferList: [port2, data.port2, ...(modes ? [modes.port2] : [])],
 		});
 		const i32 = new Int32Array(ctrl),
