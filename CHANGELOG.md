@@ -12,6 +12,16 @@ fields are added), state exports `chronal-export/1`, recordings `chronal-rec/1`.
 
 ### Fixed
 
+- A character placed outside a map's walls (a setup's `at` such as `main:300:300`) hung the run at its first
+  `smart_move` ("a thread stopped making progress", after two real minutes): the run now fails at the start, naming
+  the character and the spot. ([#4](https://github.com/MtlSnkAI/chronal/issues/4))
+- `smart_move`'s search ran to its end in one go, taking no game time: it stops for the tick after 40 ms (500 ms on a
+  hidden page, as the sim's are) by `Date`, which doesn't move inside synchronous code. It now stops after that much
+  time's worth of search (25 steps per ms, measured), so a long search spreads over the ticks as on live, the same in
+  every run: a walk to a spot with no path fails after about a game second instead of at once.
+- "a thread stopped making progress" named whichever thread gave up waiting first, often one waiting on the server:
+  it now names the thread that stopped (the one furthest behind), e.g. `client thread Merch`.
+
 - The weekly upstream check's closing comment says when the game's newest commit is the one `develop` is already
   pinned to, instead of suggesting to move the pin there.
 

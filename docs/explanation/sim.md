@@ -101,7 +101,9 @@ targeting, with a condition, roaming, a boss or an event monster never freezes.
 - **The ping** is the setup's, with a little jitter: no lag spikes or packet loss.
 - **Maps with no players** are paused at boot (the live server pauses them itself after 50 s), and their NPCs wait
   until a player arrives.
-- **Pathfinding** runs in-process with 2 ms of latency; database calls take no game time.
+- **Pathfinding** runs in-process with 2 ms of latency; database calls take no game time. A CODE's `smart_move`
+  searches in slices per tick as the game's client does, but each slice is a fixed amount of search (40 ms or 500 ms
+  at 25 steps per ms) instead of the time the computer takes: the virtual clock doesn't move inside synchronous code.
 - **Storage:** in threads mode each character's page has its own `localStorage`, as in separate browsers; characters
   talk through the server's `cm`, not `send_local_cm`.
 - **Frame rate:** the setup's `fps` (default 10, live with graphics: 60). Level and xp tracked 60 fps closely in tests;

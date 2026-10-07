@@ -32,6 +32,8 @@ const port = w.port,
 	data = w.data;
 const gate = new Gate({
 	shared: w.shared, self: w.slot, peers: [0], L: w.W, spin: w.spin,
+	// longer than the server's: a client stuck in an event holds the server back, and the server's error names it
+	patience: 150000, name: () => "the server",
 	flush: () => hub.out.length && data.postMessage(hub.take()),
 	receive: () => {
 		for (let m; (m = receiveMessageOnPort(data)); ) hub.receive(m.message);
