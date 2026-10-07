@@ -98,4 +98,26 @@ function logTap() {
 	};
 }
 
-module.exports = { readMode, readStatus, readRole, modeExpr, guarded, logTap, LOG_TEXT, LOG_KEEP, STATUS_MS, STATUS_MAX, ROLES, WHY };
+/** What a sim prints of its warnings and errors (its own, its server's, its pages' and their CODE's): each distinct message
+ * once, a repeat counted; flush() prints "<label>: N more of: <message>" for those (at the end of the run or the
+ * thread). silent: nothing printed (tests that make errors on purpose: they read them from messages, the last 500, or
+ * the game log). print(kind, text) writes one. */
+function onceConsole(print, { silent = false, label = "" } = {}) {
+	const seen = new Map(),
+		messages = [];
+	const say = (kind, text) => {
+		messages.push({ kind, text });
+		if (messages.length > 500) messages.shift();
+		if (silent) return;
+		const n = seen.get(text);
+		if (n === undefined) return void (seen.set(text, 0), print(kind, text));
+		seen.set(text, n + 1);
+	};
+	const flush = () => {
+		for (const [text, n] of seen) if (n) print("warn", `[sim]${label ? " " + label + ":" : ""} ${n} more of: ${text.length > 200 ? text.slice(0, 200) + "..." : text}`);
+		seen.clear();
+	};
+	return { say, flush, messages };
+}
+
+module.exports = { onceConsole, readMode, readStatus, readRole, modeExpr, guarded, logTap, LOG_TEXT, LOG_KEEP, STATUS_MS, STATUS_MAX, ROLES, WHY };

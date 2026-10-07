@@ -35,7 +35,7 @@ load_code("broken");
 order.push(BEFORE, typeof AFTER === "undefined" ? "hoisted" : AFTER);`;
 
 async function boot(threads, code, files, live) {
-	const sim = await createSim({ root: ROOT, seed: 1, threads, live: live || false });
+	const sim = await createSim({ root: ROOT, seed: 1, threads, live: live || false, silent: true }); // (its errors are on purpose: read back below)
 	const c = sim.addCharacter({ name: "Load1", type: "mage", code, fps: 10, files });
 	await sim.until(async () => sim.halted || (await c.query("!!(character && code_active)")), 60000);
 	return { sim, c };
@@ -135,7 +135,7 @@ test("a host's own client thread script (login worker, extra): it runs for the c
 require("node:fs").appendFileSync(w.mark, JSON.stringify({ name: w.fixture.name, root: w.root === ${JSON.stringify(ROOT)}, host: w.host }) + "\\n");
 require(${JSON.stringify(path.join(__dirname, "..", "sim", "client_worker.js"))});
 `);
-	const sim = await createSim({ root: ROOT, seed: 1, threads: true, live: false });
+	const sim = await createSim({ root: ROOT, seed: 1, threads: true, live: false, silent: true }); // (the game's disconnect(): its raw socket events)
 	try {
 		const c = sim.addCharacter({ name: "Host1", type: "ranger", code: "setTimeout(() => disconnect(), 60000);", fps: 10, worker, extra: { mark, host: "mine", root: "not the sim's" } });
 		await sim.until(async () => sim.halted || (await c.query("!!(character && code_active)")), 60000);
@@ -192,4 +192,32 @@ test("the fake socket.io server: to(ids) emits to those sockets only (a room per
 	io.to("roulette").emit("bet", 3);
 	assert.deepEqual(got, [["a", "x", 1], ["c", "x", 1], ["b", "y", 2]]);
 	assert.doesNotThrow(() => io.engine.on("connection", () => {}));
+});
+
+test("onceConsole: each distinct message printed once, repeats counted (flush: N more of); silent prints nothing, keeps them", () => {
+	const { onceConsole } = require("../sim/report");
+	const said = [],
+		o = onceConsole((kind, text) => said.push([kind, text]), { label: "Ran1" });
+	for (let i = 0; i < 5; i++) o.say("error", "Weird resolve_deferred issue: cruise");
+	o.say("warn", "another");
+	o.flush();
+	assert.deepEqual(said, [["error", "Weird resolve_deferred issue: cruise"], ["warn", "another"], ["warn", "[sim] Ran1: 4 more of: Weird resolve_deferred issue: cruise"]]);
+	assert.equal(o.messages.length, 6);
+	const quiet = [],
+		s = onceConsole((kind, text) => quiet.push(text), { silent: true });
+	s.say("error", "boom");
+	s.flush();
+	assert.deepEqual([quiet, s.messages], [[], [{ kind: "error", text: "boom" }]]);
+});
+
+test("chronal run: a page's repeated console error (the game's disconnect(): 300 raw socket events) prints once per page, named, then how many more", { skip, timeout: 180000 }, () => {
+	const d = tmp();
+	fs.writeFileSync(path.join(d, "dc.js"), "setTimeout(() => disconnect(), 30000);\n");
+	fs.writeFileSync(path.join(d, "setup.json"), JSON.stringify({ format: "chronal-setup/1", name: "dc", world: { threads: true }, characters: [{ name: "Dc1", class: "ranger", code: { file: "dc.js" } }] }));
+	const r = spawnSync(process.execPath, [path.join(__dirname, "..", "chronal.js"), "run", path.join(d, "setup.json"), "--duration", "50s", "--no-live", "--no-export"], { encoding: "utf8" });
+	assert.equal(r.status, 0, r.stderr);
+	const lines = r.stderr.split("\n").filter((l) => /cruise/.test(l));
+	assert.equal(lines[0], "[sim Dc1 page] Weird resolve_deferred issue: cruise");
+	assert.match(lines[1], /^\[sim\] Dc1: \d+ more of: Weird resolve_deferred issue: cruise$/);
+	assert.equal(lines.length, 2, r.stderr);
 });

@@ -37,13 +37,16 @@ test("ip labels on a real sim: one label is_same, another not; a trade with anot
 	const { startSetup } = require("../sim/start");
 	const d = tmp(),
 		idle = path.join(d, "idle.js"),
+		stand = path.join(d, "stand.js"),
 		buyer = path.join(d, "buyer.js");
 	fs.writeFileSync(idle, "");
-	fs.writeFileSync(buyer, 'setTimeout(() => parent.socket.emit("trade_buy", { id: "Mer", slot: "trade1", q: 2 }), 3000);');
+	// (the game's trade_buy reads the listing as the buyer's client sees it: an open stand's)
+	fs.writeFileSync(stand, "setTimeout(() => open_stand(), 500);");
+	fs.writeFileSync(buyer, 'setTimeout(() => trade_buy(get_player("Mer"), "trade1", 2), 3000);');
 	const { resolved, bundles } = S.resolveSetup(S.loadSetup(setupOf(d, {
 		accounts: { me: {}, me2: {}, them: { ip: "them" } },
 		characters: [
-			{ name: "Mer", class: "merchant", account: "me", at: "main:0:0", code: { file: idle }, state: { level: 30, slots: { trade1: { name: "hpot0", q: 10, price: 1000 } } } },
+			{ name: "Mer", class: "merchant", account: "me", at: "main:0:0", code: { file: stand }, state: { level: 30, items: [{ name: "stand0" }], slots: { trade1: { name: "hpot0", q: 10, price: 1000, rid: "s1" } } } },
 			{ name: "Alt", class: "ranger", account: "me2", at: "main:20:0", code: { file: idle } },
 			{ name: "Buy", class: "ranger", account: "them", at: "main:10:0", code: { file: buyer }, state: { gold: 10000 } },
 		],

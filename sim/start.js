@@ -16,10 +16,10 @@ const { modeExpr } = require("./report");
  *   unset: off); record: createSim's; quiet; root (default config().al_root)
  * @returns {Promise<{ sim, clients: { [name]: client }, order: client[] }>}
  */
-async function startSetup(resolved, bundles, { live, record, quiet, root, signals } = {}) {
+async function startSetup(resolved, bundles, { live, record, quiet, root, signals, silent } = {}) {
 	const run = resolved.run,
 		world = resolved.world;
-	const sim = await createSim({ root: root || config().al_root, seed: run.seed, threads: world.threads !== false, ping: world.ping, roi: roiOption(world.roi == null ? undefined : String(world.roi)), quiet, live, record, signals, ...(world.start ? { start: Date.parse(world.start) } : {}), seasons: (world.seasons || []).filter((x) => typeof x === "string" || x.from == null).map((x) => (typeof x === "string" ? x : x.season)), anniversary: world.anniversary ?? null, ugrace: world.ugrace ?? null, ugrace_fixed: !!world.ugrace_fixed });
+	const sim = await createSim({ root: root || config().al_root, seed: run.seed, threads: world.threads !== false, ping: world.ping, roi: roiOption(world.roi == null ? undefined : String(world.roi)), quiet, live, record, signals, silent, ...(world.start ? { start: Date.parse(world.start) } : {}), seasons: (world.seasons || []).filter((x) => typeof x === "string" || x.from == null).map((x) => (typeof x === "string" ? x : x.season)), anniversary: world.anniversary ?? null, ugrace: world.ugrace ?? null, ugrace_fixed: !!world.ugrace_fixed });
 	// a custom world (world.spawns): its monsters in the server before anything runs (sim/world_spawns.js)
 	if (world.spawns && world.spawns.length) sim.spawns = require("./world_spawns").spawnAll(sim.server, sim.clock, world.spawns);
 	// world.age: nobody in game yet (0: nothing runs, the run as before); a halt ends it early (at the next game minute)

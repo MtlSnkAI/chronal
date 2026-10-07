@@ -46,7 +46,7 @@ async function run() {
 		],
 	})));
 	const { resolved, bundles } = S.resolveSetup(s);
-	const { sim, clients, order } = await startSetup(resolved, bundles, { live: false });
+	const { sim, clients, order } = await startSetup(resolved, bundles, { live: false, silent: true }); // (B's disconnect(): the game's raw socket events)
 	const at = {},
 		inGame = (n) => sim.clients.findLast((c) => c.name === n && c.online !== false) || null,
 		lw = async (n) => { const c = inGame(n); return c ? await c.query("!!(character && character.s.encouragement_lonewolf)") : null; };

@@ -51,6 +51,10 @@ chronal run --code my.js [--dir DIR] --class ranger [--name N] [--level 40] [--a
   its final numbers (with `--no-live` too); a second signal exits at once. `chronal new --run` and the fidelity tool's
   `sim.js` pass SIGINT / SIGTERM on to their runs and start no more.
 - A CODE that asks for a slot its setup doesn't give fails the run (exit 1).
+- Warnings and errors (the sim's, its pages' and their CODE's: `[sim <name> CODE] ...`, `[sim <name> page] ...`) print
+  once each per page; repeats are counted at the end ("[sim] <name>: 15 more of: ..."), and every one stays in the
+  snapshot's game log. A page's "Weird resolve_deferred issue: <call>" is the game's own: an answer to a socket event
+  its CODE (or the game's `disconnect()`) sent itself, without the game's function.
 - At its end (done, stopped or halted) the run writes its state ([state exports](export.md)) to `<id>.state/end/`; the
   dashboard's Export state and a steering entry's `export` write one while it runs.
 - `--result`: `{ seed, warm, minutes, vmin, speed, real_s, halted, setup, live, state, characters: { <name>: ... }, fighter,

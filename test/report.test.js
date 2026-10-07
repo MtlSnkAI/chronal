@@ -193,7 +193,7 @@ const CODES = {
 };
 async function runReport(threads) {
 	const dir = tmp(),
-		sim = await createSim({ root: ROOT, seed: 1, threads, live: false });
+		sim = await createSim({ root: ROOT, seed: 1, threads, live: false, silent: true }); // (AnyC's errors are on purpose: the game log reads them)
 	sim.live = new Live(sim, { dir, tag: "report test" });
 	const cs = Object.entries(CODES).map(([name, code], i) => sim.addCharacter({ name, type: ["ranger", "warrior", "mage"][i], code, fps: 10 }));
 	assert.ok(await sim.until(async () => (await Promise.all(cs.map((c) => c.query("!!(character && code_active)")))).every(Boolean), 60000));
